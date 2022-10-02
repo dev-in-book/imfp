@@ -1,0 +1,312 @@
+# 3장 액션과 계산, 데이터의 차이를 알기
+
+## 이번 장에서 살펴볼 내용
+
+- 액션과 계산, 데이터가 어떻게 다른지 배웁니다.
+- 문제에 대해 생각하거나 코드를 작성할 때 또는 코드를 읽을 때 액션과 계산, 데이터를 구분해서 적용해봅니다.
+- 액션이 코드 전체로 퍼질 수 있다는 것을 이해합니다.
+- 이미 있는 코드에서 어떤 부분이 액션인지 찾아봅니다.
+
+## 액션과 계산, 데이터
+
+우선, 액션과 계산, 데이터에 대한 정의를 보겠습니다.
+
+**액션**: 실행 시점과 횟수에 의존합니다.
+
+**계산**: 입력으로 출력을 계산합니다.
+
+**데이터**: 이벤트에 대한 사실을 나타냅니다.
+
+### 액션과 계산, 데이터를 적용하여 보는 개발 과정
+
+1. 문제에 대해 생각하기
+
+아직 코딩을 하기 전 단계이지만 액션과 계산, 데이터로 나눠서 생각하여 설계합니다.
+
+2. 코딩하기
+
+최대한 액션에서 계산을 빼냅니다.
+또 계산에서 데이터를 분리할 수 있는지 생각합니다.
+더 나아가 액션이 계산이 될 수 있는지, 계산은 데이터가 될 수 있는지 고민합니다.
+
+3. (유지보수를 위해) 코드 읽기
+
+액션과 계산, 데이터 중 어디에 속하는지 잘 봐야합니다.
+특히, 액션은 실행하는 시점에 따라 결과가 달라지니 유의해서 봐야합니다.
+
+## 액션과 계산, 데이터는 어디에나 적용할 수 있습니다
+
+### 장보기 과정
+
+| A,C,D    | 장보기 과정            | 설명                                                                                                                         |
+| -------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `Action` | 냉장고 확인하기        | 냉장고의 문을 열기전 까지 고양이가 있는 상태와 없는 상태가 동시에 존재하므로 액션입니다.                                     |
+| `Action` | 운전해서 상점으로 가기 | 운전하는 것은 연료라는 데이터(혹은 상태)를 소모하므로 액션입니다.                                                            |
+| `Action` | 필요한 것 구입하기     | 필요하다라는 것은 시간에 따라 달라집니다. 지금은 카레가 먹고 싶어서 카레를 사지만 나중에는 아닐 수도 있기 때문에 액션입니다. |
+| `Action` | 운전해서 집으로 오기   | 운전해서 상점으로 가기랑 비슷하므로 액션입니다.                                                                              |
+
+모든 것이 액션이다를 결론으로 chapter 3 정리를 종료하겠습니다.
+
+---
+
+는 장난이고 이어서 작성하겠습니다.
+
+각 단계 별로 세부적인 부분은 계산과 데이터로 나눌 수 있습니다.
+
+### 냉장고 확인하기
+
+냉장고란 무엇일까요? 냉장고는 우리의 중요한 식량을 신선하게 유지하는 곳 입니다.
+
+그리고 우리는 때에 따라 냉장고의 식료품을 꺼내서 먹습니다.
+
+여기서 식료품은 데이터이고 냉장고는 데이터베이스라고 생각하면 되겠습니다.
+
+현재 재고(데이터) - ...
+
+냉장고의 상태(식료품)는 시간에 따라 달라집니다.
+
+그러므로 액션입니다.
+
+### 운전해서 상점으로 가기
+
+데이터가 숨어 있긴 하나 다른 기술적인 작업이 들어가지 않을 거라 생략하겠습니다.
+
+### 필요한 것 구입하기
+
+필요한 것 구입하기에서는 단계를 다음과 같이 더 나눌 수 있습니다.
+
+... - 필요한 재고(데이터) - 재고 빼기(계산) - 장보기 목록(데이터) - 목록에 있는 것 구입하기(액션)
+
+### 운전해서 집으로 오기
+
+여기서 다루는 범위가 아니므로 이것도 생략하겠습니다.
+
+p.35 사진 추가
+
+## 장보기 과정에서 배운 것
+
+1. 액션과 계산, 데이터는 어디에나 적용할 수 있습니다.
+
+2. 액션 안에는 계산과 데이터, 또 다른 액션이 숨어 있을지도 모릅니다.
+
+3. 계산은 더 작은 계산과 데이터로 나누고 연결할 수 있습니다.
+
+4. 데이터는 데이터만 조합할 수 있습니다.
+
+5. 계산은 때로 '우리 머릿속에서' 일어납니다.
+
+## 새로 만드는 코드에 함수형 사고 적용하기
+
+### 쿠폰독의 새로운 마케팅 전략
+
+- 쿠폰에 관심 있는 구독자들에게 이메일로 쿠폰을 매주 보내주는 서비스입니다.
+
+- 친구 10명을 추천하면 더 좋은 쿠폰을 보내주려고 합니다.
+
+- 이메일과 추천 친구수를 가지는 테이블이 있습니다.
+
+| email             | rec_count |
+| ----------------- | --------- |
+| john@coldmain.com | 2         |
+| sam@pmail.co      | 16        |
+| linda1989@oal.com | 1         |
+| jan1940@ahoy.com  | 0         |
+| mrbig@pmail.co    | 25        |
+| lol@lol.lol       | 0         |
+
+- 등급에 따라 부여되는 쿠폰 데이터를 가지는 테이블이 있습니다.
+
+| code           | rank |
+| -------------- | ---- |
+| MAYDISCOUNT    | good |
+| 10PERCENT      | bad  |
+| PROMOTION45    | best |
+| IHEARTYOU      | bad  |
+| GETADEAL       | best |
+| ILIKEDISCOUNTS | good |
+
+- best 쿠폰은 추천을 많이 한 사용자를 위한 쿠폰입니다.
+
+- good 쿠폰은 모든 사용자들에게 전달되는 쿠폰입니다.
+
+- bad 쿠폰은 사용하지 않는 쿠폰입니다.
+
+## 쿠폰 보내는 과정을 그려보기
+
+1. 데이터베이스에서 구독자 목록을 가져오기
+
+2. 데이터베이스에서 쿠폰 목록 가져오기
+
+3. 보내야할 이메일 목록 만들기
+
+4. 이메일 전송하기
+
+## 쿠폰 보내는 과정 구현하기
+
+### 데이터베이스에서 가져온 구독자 데이터
+
+```typescript
+interface Subscriber {
+  email: string;
+  recommendCount: number;
+}
+
+// ex
+const subscriber: Subscriber = {
+  email: 'sam@pmail.com',
+  recommendCount: 16,
+};
+```
+
+### 쿠폰 등급을 결정하는 것은 함수(계산)입니다.
+
+```typescript
+type Rank = 'best' | 'good' | 'bad';
+
+function getRankBySubscriber(subscriber: Subscriber): Rank {
+  if (subscriber.recommendCount >= 10) return 'best';
+  else return 'good';
+}
+```
+
+### 데이터베이스에서 가져온 쿠폰 데이터
+
+```typescript
+interface Coupon {
+  code: string;
+  rank: Rank;
+}
+// ex
+const coupon: Coupon = {
+  code: '10PERCENT',
+  rank: 'bad',
+};
+```
+
+### 특정 등급의 쿠폰 목록을 선택하는 것은 함수(계산)입니다.
+
+```typescript
+function getCouponsByRank(coupons: Coupon[], rank: Rank): Coupon[] {
+  return coupons.filter((coupon) => coupon.rank === rank);
+}
+```
+
+### 이메일은 그냥 데이터 입니다.
+
+```typescript
+interface Email {
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+}
+// ex
+const email: Email = {
+  from: 'newsletter@coupondog.co',
+  to: 'sam@pmail.com',
+  subject: 'Your weekly coupons inside',
+  body: 'Here are your coupons ...',
+};
+```
+
+### 구독자가 받을 이메일을 계획하는 계산
+
+```typescript
+function writeEmailForSubscriber(
+  subscriber: Subscriber,
+  goodCoupons: Coupon[],
+  bestCoupons: Coupon[]
+): Email {
+  const subscriberRank = getRankBySubscriber(subscriber);
+  switch (subsriberRank) {
+    case 'best':
+      return {
+        from: 'newsletter@coupondog.co',
+        to: subscriber.email,
+        subject: 'Your best weekly coupons inside',
+        body: `Here are the best coupons: ${bestCoupons.join(', ')}`,
+      };
+    case 'good':
+      return {
+        from: 'newsletter@coupondog.co',
+        to: subscriber.email,
+        subject: 'Your best weekly coupons inside',
+        body: `Here are the good coupons: ${goodCoupons.join(', ')}`,
+      };
+    default:
+      throw new Error('rank not provided');
+  }
+}
+```
+
+### 보낼 이메일 목록을 준비하기
+
+```typescript
+function writeEmailsForSubscribers(
+  subscribers: Subscriber[],
+  goodCoupons: Coupon[],
+  bestCoupons: Coupon[]
+): Email[] {
+  return subscribers.map((subsriber) =>
+    writeEmailForSubsriber(subscriber, goodCoupons, bestCoupons)
+  );
+}
+```
+
+### 이메일 보내기는 액션입니다.
+
+```typescript
+interface EmailSystem {
+  send: (email: Email) => void;
+}
+
+async function sendWeeklyEmail(emailSystem: EmailSystem) {
+  const [subscribers, coupons] = await Promise.all([
+    readSubscribers(),
+    readCoupons(),
+  ]);
+  const goodCoupons = getCouponsByRank(coupons, 'good');
+  const bestCoupons = getCouponsByRank(coupons, 'best');
+  const emails = writeEmailsForSubscribers(
+    subscribers,
+    goodCoupons,
+    bestCoupons
+  );
+  emails.forEach((email) => emailSystem.send(email));
+}
+```
+
+## 액션은 코드 전체로 퍼집니다.
+
+액션을 호출하면 액션이 됩니다.
+
+## 액션은 다양한 형태로 나타납니다.
+
+- 팝업창 띄우기
+
+- 콘솔 띄우기
+
+- new Date()
+
+- 공유 가변값
+
+언제 부르는지 또는 얼마나 부르는지에 따라 다른 결과를 나타내므로 액션입니다.
+어느 곳에서나 사용할 수 있기 때문에 코드 전체로 퍼지기 쉽습니다.
+
+## 결론
+
+계산은 계획이나 결정을 할 때 적용했고 데이터는 계획하거나 결정한 결과였습니다. 마지막으로, 액션을 통해 계산으로 만든 계획을 실행할 수 있었습니다.
+
+## 요점정리
+
+- 함수형 프로그래머는 액션과 계산, 데이터를 구분합니다.
+
+- 액션은 실행 시점이나 횟수에 의존합니다.
+
+- 계산은 입력값으로 출력값을 만드는 것(순수 함수)입니다.
+
+- 데이터는 이벤트에 대한 사실입니다.
+
+- 함수형 프로그래머는 액션보다 계산을 좋아하고 계산보다 데이터를 좋아합니다.
+
+- 계산은 테스트하기 쉽습니다.

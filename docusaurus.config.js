@@ -12,7 +12,7 @@ const config = {
   title: 'My Book',
   tagline: 'detail',
   url: 'https://your-site.com',
-  baseUrl: `/${repoName}`,
+  baseUrl: `/${repoName}/`,
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
@@ -51,7 +51,7 @@ const config = {
         items: [
           {
             type: 'doc',
-            docId: 'chapter_1',
+            docId: 'chapter_3',
             position: 'left',
             label: '📕 detail',
           },
@@ -71,7 +71,7 @@ const config = {
             items: [
               {
                 label: 'BookName',
-                to: '/docs/chapter_1',
+                to: '/docs/chapter_3',
               },
               {
                 label: 'Member',
