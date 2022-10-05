@@ -1,0 +1,386 @@
+# 4장 액션에서 계산 빼내기
+
+## 이번 장에서 살펴볼 내용
+
+- 어떻게 함수로 정보가 들어가고 나오는지 살펴봅니다.
+
+- 테스트하기 쉽고 재사용성이 좋은 코드를 만들기 위한 함수형 기술에 대해 알아봅니다.
+
+- 액션에서 계산을 빼내는 방법을 배웁니다.
+
+## MegaMart.com에 오신 것을 환영합니다
+
+이번 장은 리팩토링 장이라서 코드 위주로 설명하겠습니다.
+
+```typescript
+interface Item {
+  name: string;
+  price: number;
+}
+
+const shoppingCart: Item[] = [];
+let shoppingCartTotal = 0;
+
+function addItemToCart(name: string, price: number) {
+  shoppingCart.push({ name, price });
+  calcCartTotal();
+}
+
+function calcCartTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+  setCartTotalDom();
+}
+```
+
+## 무료 배송비 계산하기
+
+### 새로운 요구사항
+
+MegaMart는 구매 합계가 20달러 이상이면 무료 배송을 해주려고 합니다. (비즈니스 로직의 변화)
+
+그래서 해당 제품을 카트에 담았을 때 20달러가 넘으면 무료 배송 아이콘을 표시해주려고 합니다.
+
+### 절차적인 방법으로 구현하기
+
+```typescript
+function updateShippingIcons() {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    if (buyButton.item.price + shoppingCartTotal >= 20) {
+      buyButton.showFreeShippingIcon();
+    } else {
+      buyButton.hideFreeShippingIcon();
+    }
+  });
+}
+
+function calcCartTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+  setCartTotalDom();
+  updateShippingIcons();
+}
+```
+
+## 세금 계산하기
+
+### 다음 요구사항
+
+장바구니의 금액 합계가 바뀔 때마다 세금을 다시 계산해야 합니다.
+
+```typescript
+function updateTaxDom() {
+  setTaxDom(shoppingCartTotal * 0.1);
+}
+
+function calcCartTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+```
+
+## 테스트하기 쉽게 만들기
+
+### 지금 코드는 비즈니스 규칙을 테스트하기 어렵습니다.
+
+코드가 바뀔 때마다 조지는 아래와 같은 테스트를 만들어야 합니다.
+
+1. 브라우저 설정하기
+2. 페이지 로드하기
+3. 장바구니에 제품 담기 버튼 클릭
+4. DOM 이 업데이트될 때까지 기다리기
+5. DOM 에서 값 가져오기
+6. 가져온 문자열 값을 숫자로 바꾸기
+7. 예상하는 값과 비교하기
+
+### 조지의 코드 설명
+
+```typescript
+function updateTaxDom() {
+  setTaxDom(shoppingCartTotal * 0.1);
+}
+```
+
+shoppingCartTotal: 테스트하기 전에 전역변수를 설정해야 합니다.
+setTaxDom: 결괏값을 얻을 방법은 DOM에서 값을 가져오는 방법뿐입니다.
+shoppingCartTotal \* 0.1: 최종적으로 테스트 해야하는 비즈니스 로직입니다.
+
+### 테스트 개선을 위한 조지의 제안
+
+- DOM 업데이트와 비즈니스 규칙은 분리되어야 합니다.
+- 전역변수가 없어야 합니다!
+
+위 제안은 함수형 프로그래밍과 잘 맞습니다.
+
+## 재사용하기 쉽게 만들기
+
+### 결제팀과 배송팀이 우리 코드를 사용하려고 합니다.
+
+하지만 다음과 같은 이유로 재사용할 수 없었습니다.
+
+- 장바구니 정보를 전역변수에서 읽어오고 있지만, 결제팀과 배송팀은 데이터베이스에서 장바구니 정보를 읽어 와야 합니다.
+- 결과를 보여주기 위해 DOM을 직접 바꾸고 있지만, 결제팀은 영수증을, 배송팀은 운송장을 출력해야 합니다.
+
+### 개발팀 제나의 코드 설명
+
+```typescript
+function updateShippingIcons() {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    // 결제팀, 배송팀이 사용하려는 비즈니스 규칙
+    // but, 전역 변수가 있음
+    if (buyButton.item.price + shoppingCartTotal >= 20) {
+      buyButton.showFreeShippingIcon(); // DOM이 있어야함
+    } else {
+      buyButton.hideFreeShippingIcon(); // DOM이 있어야함
+    }
+  });
+} // 리턴값 없음
+```
+
+### 개발팀 제나의 제안
+
+- 전역 변수에 의존하지 않아야 합니다. (부수효과 제거)
+- DOM을 사용할 수 있는 곳에서 실행된다고 가정하면 안 됩니다. (클린 아키텍처, 선택지는 나중에 선택할 수 있게 만들기)
+- 함수가 결괏값을 리턴해야 합니다. (이 책에서 말하는 '계산'으로 만드려는 것 같습니다.)
+
+## 액션과 계산, 데이터를 구분하기
+
+```typescript
+interface Item {
+  name: string;
+  price: number;
+}
+
+const shoppingCart: Item[] = []; // A
+let shoppingCartTotal = 0; // A
+
+// A
+function addItemToCart(name: string, price: number) {
+  shoppingCart.push({ name, price });
+  calcCartTotal();
+}
+
+// A
+function updateShippingIcons() {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    if (buyButton.item.price + shoppingCartTotal >= 20) {
+      buyButton.showFreeShippingIcon();
+    } else {
+      buyButton.hideFreeShippingIcon();
+    }
+  });
+}
+
+// A
+function updateTaxDom() {
+  setTaxDom(shoppingCartTotal * 0.1);
+}
+
+// A
+function calcCartTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+```
+
+## 함수에는 입력과 출력이 있습니다.
+
+```typescript
+let total = 0;
+function addToTotal(amount: number) {
+  // 인자는 명시적 입력입니다.
+  console.log(`Old total: ${total}`); // 전역변수는 암묵적 입력입니다.
+  // console.log 는 암묵적 출력입니다.
+  total += amount; // 전역 변수를 변경하는 것도 암묵적 출력입니다.
+  return total; // 리턴 값은 명시적 출력입니다.
+}
+```
+
+- 암묵적인 뭐시기가 있으면 액션이 됩니다. (부수효과를 조금더 체계적으로 정리하는 듯 합니다.)
+
+## 테스트와 재사용성은 입출력과 관련 있습니다.
+
+- DOM 업데이트와 비즈니스 규칙은 분리되어야 합니다.
+- 전역변수가 없어야 합니다.
+- 전역변수에 의존하지 않아야 합니다.
+- DOM 을 사용할 수 있는 곳에서 실행된다고 가정하면 안 됩니다.
+- 함수가 결괏값을 리턴해야 합니다.
+
+## 액션에서 계산 빼내기
+
+### 서브루틴 추출하기
+
+```typescript
+function calcTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+}
+
+function calcCartTotal() {
+  calcTotal();
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+```
+
+### 암묵적 입출력을 없앤 코드
+
+```typescript
+function calcCartTotal() {
+  shoppingCartTotal = 0;
+  shoppingCart.forEach((item) => {
+    shoppingCartTotal += item.price;
+  });
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+```
+
+```typescript
+function calcTotal(cart: Item[]) {
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+}
+
+function calcCartTotal() {
+  shoppingCartTotal = calcTotal(shoppingCart);
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+```
+
+### 조지와 제나의 모든 고민은 해결되었습니다.
+
+- DOM 업데이트와 비즈니스 규칙은 분리되어야 합니다.
+- 전역변수가 없어야 합니다.
+- 전역변수에 의존하지 않아야 합니다.
+- DOM 을 사용할 수 있는 곳에서 실행된다고 가정하면 안 됩니다.
+- 함수가 결괏값을 리턴해야 합니다.
+
+## 액션에서 또 다른 계산 빼내기
+
+```typescript
+function addItemToCart(name: string, price: number) {
+  shoppingCart.push({ name, price });
+  calcCartTotal();
+}
+```
+
+```typescript
+function addItem(cart: Item[], name: string, price: number) {
+  const newCart = [...cart];
+  newCart.push({ name, price });
+  return newCart;
+}
+
+function addItemToCart(name: string, price: number) {
+  addItem(name, price);
+  calcCartTotal();
+}
+```
+
+## 전체 코드를 봅시다
+
+```typescript
+interface Item {
+  name: string;
+  price: number;
+}
+
+let shoppingCart: Item[] = []; // A
+let shoppingCartTotal = 0; // A
+
+// A
+function calcCartTotal() {
+  shoppingCartTotal = calcTotal(shoppingCart);
+  setCartTotalDom();
+  updateShippingIcons();
+  updateTaxDom();
+}
+
+// C
+function calcTotal(cart: Item[]) {
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+}
+
+function addItemToCart(name: string, price: number) {
+  shoppingCart = addItem(shoppingCart, name, price);
+  calcCartTotal();
+}
+
+// C
+function addItem(cart: Item[], name: string, price: number) {
+  const newCart = [...cart];
+  newCart.push({ name, price });
+  return newCart;
+}
+
+// A
+function updateShippingIcons() {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    if (getFreeShipping(shoppingCartTotal, buyButton.item.price)) {
+      buyButton.showFreeShippingIcon();
+    } else {
+      buyButton.hideFreeShippingIcon();
+    }
+  });
+}
+
+// C
+function getFreeShipping(total: number, itemPrice: number) {
+  return itemPrice + total >= 20;
+}
+
+// A
+function updateTaxDom() {
+  setTaxDom(calcTax(shoppingCartTotal));
+}
+
+// C
+function calcTax(amount: number) {
+  return amount * 0.1;
+}
+```
+
+## 결론
+
+슬픈 이야기라 생략하겠읍니다.
+
+## 요점정리
+
+- 액션은 암묵적인 입력 또는 출력을 가지고 있습니다.
+- 계산의 정의에 따르면 계산은 암묵적인 입력이나 출력이 없어야 합니다.
+- 공유 변수(전역변수 같은)는 일반적으로 암묵적 입력 또는 출력이 됩니다.
+- 암묵적 입력은 인자로 바꿀 수 있씁니다.
+- 암묵적 출력은 리턴값으로 바꿀 수 있습니다.
+- 함수형 원칙을 적용하면 액션은 줄어들고 계산은 늘어난다는 것을 확인했습니다.
