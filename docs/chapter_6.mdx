@@ -1,0 +1,188 @@
+# 6장 변경 가능한 데이터 구조를 가진 언어에서 불변성 유지하기
+
+![chap6](./chap6.png)
+
+## 이번 장에서 살펴볼 내용
+
+- 데이터가 바뀌지 않도록 카피-온-라이트 적용
+- 배열과 객체를 데이터에 쓸 수 있는 카피-온-라이트 만들기
+- 깊이 중첩된 데이터도 카피-온-라이트 잘 동작하게 만들기
+
+## 카피-온-라이트 원칙 세 단계
+
+1. 복사본 만들기
+2. 복사본 변경하기
+3. 복사본 리턴하기
+
+```typescript
+function addElementLast<T>(array: T[], elem: T): T[] {
+  const newArr = [...array];
+  newArr.push(elem);
+  return newArr;
+}
+```
+
+> 🤔 쓰기 일까... 읽기 일까...
+>
+> 데이터를 바꾸지 않고, 정보를 리턴했기 때문에 **"읽기"**입니다!!!!
+
+## 카피-온-라이트로 쓰기를 읽기로 바꾸기!
+
+```typescript
+function removeItemByName(cart: Item[], name: string) {
+  let idx = null;
+  cart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    cart.splice(idx, 1);
+  }
+}
+```
+
+```typescript
+cart.splice(idx, 1);
+```
+
+shoppingCart가 들어가게 되면 전역변수가 변경되게 된다.
+
+우리는 shoppingCart을 변경 불가능한 데이터로 쓰고 싶다. 불변성을 유지하고 싶다.
+
+```typescript
+function removeItemByName(cart: Item[], name: string) {
+  const newCart = [...cart]; // 1 복사본 만들기
+  let idx = null;
+  newCart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    newCart.splice(idx, 1); // 2 복사본 변경하기
+  }
+  return newCart; // 3 복사본 리턴하기
+}
+```
+
+## 일반화 하기
+
+```typescript
+function removeItems<T>(arr: T[], idx: number, count: number) {
+  const copy = [...arr];
+  copy.splice(idx, count);
+  return copy;
+}
+
+function removeItemByName(cart: Item[], name: string) {
+  let idx = null;
+  cart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    return removeItems(cart, idx, 1);
+  }
+  return cart;
+}
+```
+
+## 자바스크립트 배열 훑어보기
+
+- array는 자바스크립트에서 기본적인 collection 이다.
+- 배열은 다른 타입의 항목을 동시에 가질 수 있다.
+- 인덱스로 접근 할 수 있다.
+- 크기를 늘리거나 줄일 수 있다.
+
+```typescript
+// 인덱싱
+const arr = [1, 2, 3, 4];
+arr[2]; // 3
+
+// 할당
+arr[2] = 'abc';
+arr; // [1,2, "abc", 4]
+
+// 길이
+arr.length; // 4
+
+// 끝에 추가, 지우기, 앞에 추가, 지우기
+arr.push(10); // 5, 길이 리턴
+arr.pop(); // 4, 지운 값 리턴
+arr.unshift(10); // 5, 길이 리턴
+arr.shift(); // 1, 지운 값 리턴
+
+// 복사 (얇게)
+arr.slice(); // [1,2,3,4]
+
+// 항목 삭제
+const arr = [1, 2, 3, 4];
+arr.splice(1, 2); // [2,3], 지운 값 리턴
+```
+
+## 쓰기, 읽기 같이 하는 함수 분리하기
+
+### .shift()
+
+```typescript
+const a = [1, 2, 3, 4];
+const b = a.shift();
+console.log(b); // 1  값을 리턴
+console.log(a); // [2,3,4]  값이 바뀌었다!
+```
+
+1. 읽기와 쓰기 함수로 각각 분리한다.
+2. 함수에서 값을 두개 리턴한다.
+
+### 읽기와 쓰기 동작으로 분리
+
+**.shift() 의 읽기** : 첫번째 값을 리턴하는 동작
+
+```typescript
+function firstElement<T>(array: T[]) {
+  return array[0];
+}
+```
+
+**.shift() 의 쓰기** : 새로 만들 필요가 없다. ( 그대로 감싸면 된다. )
+
+```typescript
+function dropFirst<T>(array: T[]) {
+  array.shift();
+}
+```
+
+쓰기를 카피-온-라이트로 바꾸기
+
+- 인자로 들어온 값을 변경하기 때문
+
+```typescript
+function dropFirst<T>(array: T[]) {
+  const arrayCopy = [...array];
+  arrayCopy.shift();
+  return arrayCopy;
+}
+```
+
+### 값을 두개 리턴하는 함수로 만들기
+
+```typescript
+function shift<T>(array: T[]) {
+  const arrayCopy = [...array];
+  const first = arrayCopy.shift();
+  return {
+    first: first,
+    array: arrayCopy,
+  };
+}
+
+// 다른 방법 (조합)
+function shift<T>(array: T[]) {
+  return {
+    first: firstElement(array),
+    array: dropFirst(array),
+  };
+}
+```
