@@ -1,0 +1,308 @@
+# 6장 변경 가능한 데이터 구조를 가진 언어에서 불변성 유지하기
+
+![chap6](./chap6.png)
+
+## 이번 장에서 살펴볼 내용
+
+- 데이터가 바뀌지 않도록 카피-온-라이트 적용
+- 배열과 객체를 데이터에 쓸 수 있는 카피-온-라이트 만들기
+- 깊이 중첩된 데이터도 카피-온-라이트 잘 동작하게 만들기
+
+## 카피-온-라이트 원칙 세 단계
+
+1. 복사본 만들기
+2. 복사본 변경하기
+3. 복사본 리턴하기
+
+```typescript
+function addElementLast<T>(array: T[], elem: T): T[] {
+  const newArr = [...array];
+  newArr.push(elem);
+  return newArr;
+}
+```
+
+> 🤔 쓰기 일까... 읽기 일까...
+>
+> 데이터를 바꾸지 않고, 정보를 리턴했기 때문에 **"읽기"**입니다!!!!
+
+## 카피-온-라이트로 쓰기를 읽기로 바꾸기!
+
+```typescript
+function removeItemByName(cart: Item[], name: string) {
+  let idx = null;
+  cart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    cart.splice(idx, 1);
+  }
+}
+```
+
+```typescript
+cart.splice(idx, 1);
+```
+
+shoppingCart가 들어가게 되면 전역변수가 변경되게 된다.
+
+우리는 shoppingCart을 변경 불가능한 데이터로 쓰고 싶다. 불변성을 유지하고 싶다.
+
+```typescript
+function removeItemByName(cart: Item[], name: string) {
+  const newCart = [...cart]; // 1 복사본 만들기
+  let idx = null;
+  newCart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    newCart.splice(idx, 1); // 2 복사본 변경하기
+  }
+  return newCart; // 3 복사본 리턴하기
+}
+```
+
+## 일반화 하기
+
+```typescript
+function removeItems<T>(arr: T[], idx: number, count: number) {
+  const copy = [...arr];
+  copy.splice(idx, count);
+  return copy;
+}
+
+function removeItemByName(cart: Item[], name: string) {
+  let idx = null;
+  cart.forEach((item) => {
+    if (item.name === name) {
+      idx = i;
+    }
+  });
+  if (idx !== null) {
+    return removeItems(cart, idx, 1);
+  }
+  return cart;
+}
+```
+
+## 자바스크립트 배열 훑어보기
+
+- array는 자바스크립트에서 기본적인 collection 이다.
+- 배열은 다른 타입의 항목을 동시에 가질 수 있다.
+- 인덱스로 접근 할 수 있다.
+- 크기를 늘리거나 줄일 수 있다.
+
+```typescript
+// 인덱싱
+const arr = [1, 2, 3, 4];
+arr[2]; // 3
+
+// 할당
+arr[2] = 'abc';
+arr; // [1,2, "abc", 4]
+
+// 길이
+arr.length; // 4
+
+// 끝에 추가, 지우기, 앞에 추가, 지우기
+arr.push(10); // 5, 길이 리턴
+arr.pop(); // 4, 지운 값 리턴
+arr.unshift(10); // 5, 길이 리턴
+arr.shift(); // 1, 지운 값 리턴
+
+// 복사 (얇게)
+arr.slice(); // [1,2,3,4]
+
+// 항목 삭제
+const arr = [1, 2, 3, 4];
+arr.splice(1, 2); // [2,3], 지운 값 리턴
+```
+
+## 쓰기, 읽기 같이 하는 함수 분리하기
+
+### .shift()
+
+```typescript
+const a = [1, 2, 3, 4];
+const b = a.shift();
+console.log(b); // 1  값을 리턴
+console.log(a); // [2,3,4]  값이 바뀌었다!
+```
+
+1. 읽기와 쓰기 함수로 각각 분리한다.
+2. 함수에서 값을 두개 리턴한다.
+
+### 읽기와 쓰기 동작으로 분리
+
+**.shift() 의 읽기** : 첫번째 값을 리턴하는 동작
+
+```typescript
+function firstElement<T>(array: T[]) {
+  return array[0];
+}
+```
+
+**.shift() 의 쓰기** : 새로 만들 필요가 없다. ( 그대로 감싸면 된다. )
+
+```typescript
+function dropFirst<T>(array: T[]) {
+  array.shift();
+}
+```
+
+쓰기를 카피-온-라이트로 바꾸기
+
+- 인자로 들어온 값을 변경하기 때문
+
+```typescript
+function dropFirst<T>(array: T[]) {
+  const arrayCopy = [...array];
+  arrayCopy.shift();
+  return arrayCopy;
+}
+```
+
+### 값을 두개 리턴하는 함수로 만들기
+
+```typescript
+function shift<T>(array: T[]) {
+  const arrayCopy = [...array];
+  const first = arrayCopy.shift();
+  return {
+    first: first,
+    array: arrayCopy,
+  };
+}
+
+// 다른 방법 (조합)
+function shift<T>(array: T[]) {
+  return {
+    first: firstElement(array),
+    array: dropFirst(array),
+  };
+}
+```
+
+## 불변 데이터 구조를 읽는 것은 계산이다.
+
+- 변경 가능한 데이터를 읽는 것은 액션
+- 쓰기는 데이터를 변경 가능한 구조로 만든다
+- 어떤 데이터에 쓰기가 없다면, 데이터는 변경 불가능한 데이터이다.
+- 불변 데이터 구조를 읽는 것은 계산
+- 쓰기를 읽기로 바꾸면 코드에 계산이 많아진다.
+
+## 어플리케이션에는 시간에 따라 변하는 상태가 있다.
+
+- shippingCart는 전역변수로 장바구니가 바뀔 때마다 새 값이 할당된다.
+- 이는 교체 Swapping (읽기,바꾸기,쓰기) 된다고 할 수 있다.
+
+## 불변 데이터 구조는 충분히 빠릅니다!
+
+- 언제든 최적화 할 수 있다.
+- 가비지 콜렉터는 매우 빠르다!
+- 생각보다 많이 복사하지 않는다.
+  - 구조적 공유를 하는 얕은 복사를 통해 참조만 복사한다.
+- 함수형 프로그래밍 언어엔 빠른 구현체가 있다.
+
+## 자바스크립트 객체 훑어 보기
+
+```typescript
+// 키 값으로 찾기 [key], .key
+const obj = {a:1,b:2};
+obj["a"] // 1
+obj.key // 1
+
+// 키 값으로 설정
+obj["a"] = 7
+obj.c = 10
+
+// 키/값 쌍 지우기
+delete obj["a"] // true
+
+// 객체 복사하기
+Object.assign({}, obj);
+{...obj}
+
+// 키 목록 가져오기
+Object.keys(obj) // ["a", "b"]
+```
+
+## 객체의 카피-온-라이트
+
+```typescript
+function setPrice(item: Item, newPrice: number) {
+  item.price = newPrice;
+}
+
+// 변경
+function setPrice(item: Item, newPrice: number) {
+  const itemCopy = { ...item }; // 1 복사본 만들기
+  itemCopy['price'] = newPrice; // 2 복사본 변경하기
+  return itemCopy; // 3 복사본 리턴하기
+}
+```
+
+## 중첩된 쓰기 읽기로 바꾸기
+
+```typescript
+function setPriceByName(cart: Item[], name: string, price: number) {
+  cart.forEach((item) => {
+    if (item.name === name) {
+      item.price = price;
+    }
+  });
+}
+```
+
+```typescript
+function setPriceByName(cart: Item[], name: string, price: number) {
+  const cartCopy = [...cart]; // 배열의 카피-온-라이트
+  cartCopy.forEach((item) => {
+    if (item.name === name) {
+      item = setPrice(item, price); // 객체의 카피-온-라이트
+    }
+    return cartCopy;
+  });
+}
+```
+
+## 어떤 복사본이 생겼을까요?
+
+```typescript
+shoppingCart = setPriceByName(shoppingCart, 't-shirt', 18564); // 12일 환율 기준 13달러
+```
+
+- 배열 하나 ( 장바구니 ) `const cartCopy = [...cart]`
+
+- 객체 하나 ( 티셔츠 ) `const itemCopy = {...item};`
+
+  나머지 두 객체(장바구니속 상품)는 복사 되지 않았다. 그 이유는 중첩 데이터의 얕은 복사를 했기 때문에, 구조적 공유가 되었다.
+
+```typescript
+// 배열은 객체 세 개를 가리킨다
+[{티셔츠}, {양말}, {신발}]
+
+// 복사본도 동일한 객체를 가리킨다
+const cartCopy = [...cart];
+[{티셔츠}, {양말}, {신발}],   [{티셔츠}, {양말}, {신발}]
+
+// 티셔츠 객체의 복사본을 만들고 가격을 바꾼다
+item = setPrice(item, price);
+[{티셔츠}, {양말}, {신발}],  복사본 [{티셔츠}, {양말}, {신발}],  복사본 {뉴 티셔츠}
+
+// 복사된 티셔츠 객체를 가르키게 한다.
+[{티셔츠}, {양말}, {신발}],  복사본 [복사본 {뉴티셔츠}, {양말}, {신발}]
+```
+
+결과적으로 `{양말}, {신발}` 객체는 `구조적 공유`가 된걸로 볼 수 있다.
+
+## 요점 정리
+
+- 함수형 프로그래밍에는 불변 데이터가 필요하다
+- 카피-온-라이트는 데이터의 불변성을 유지할 수 있는 원칙이다
+- 카피-온-라이트는 값을 변경하기 전 얕은 복사를 한다 그리고 리턴한다
+- 보일러플레이트 코드를 줄이기 위해, 기본적인 유틸성 카피-온-라이트 함수를 만들어 두자
