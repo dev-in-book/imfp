@@ -1,0 +1,245 @@
+# 5장 더 좋은 액션 만들기
+
+## 이번 장에서 살펴볼 내용
+
+- 암묵적 입력과 출력을 제거, 재사용 좋은 코드를 만드는 법
+- 복잡하게 엉킨 코드를 풀어, 좋은 구조 만들기
+
+## 비지니스 요구 사항과 설계, 함수를 맞추기
+
+4장의 함수들을 보았을 때, 요구사항에 맞지 않는 것들이 있습니다.
+
+요구사항은 장바구니에 담긴 제품을 주문할때, 무료인지 확인 하는 것입니다. 그러나 제품의 합계와 가격으로 판단하고 있습니다.
+
+또한 중복되는 코드가 존재합니다.
+
+이는 나쁜 것은 아니지만, 냄새가 좀 나네요. 책에서는 **코드의 냄새** 라고 부릅니다.
+
+```typescript
+function getFreeShipping(total: number, itemPrice: number) {
+  return itemPrice + total >= 20;
+}
+
+function calcTotal(cart: Item[]) {
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+}
+
+// 변경
+function getFreeShipping(cart: item[]) {
+  return calcTotal(cart) >= 20;
+}
+
+function updateShippingIcons() {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    const newCart = addItem(
+      shippingCart,
+      buyButton.item.name,
+      buyButton.item.price
+    );
+    if (getFreeShipping(newCart)) {
+      buyButton.showFreeShippingIcon();
+    } else {
+      buyButton.hideFreeShippingIcon();
+    }
+  });
+}
+```
+
+위에서는 동작을 바꿨기 때문에 리팩터링이라고 부를 수 없습니다.
+
+## 원칙 : 암묵적 입력과 출력은 적을 수록 좋습니다
+
+- 암묵적 입력 : 인자가 아닌 모든 입력
+- 암묵적 출력 : 리턴값이 아닌 모든 출력
+
+`암묵적 입력,출력`이 있다면 다른 컴포넌트와 `강하게 연결된 컴포넌트`라고 볼 수 있습니다. 모듈이라 부를 수 없다.
+
+반면, 명시적 입출력은 모듈에 있는 커넥터와 같다.
+
+액션은 예측하기 어렵기 때문에 줄이는 것이 좋다!
+
+## 암묵적 입력과 출력 줄이기
+
+암묵적 입력인 전역변수 shippingCart 를 명시적 입력으로 바꿔서 제거
+
+```typescript
+function updateShippingIcons(cart: item[]) {
+  const buyButtons = getBuyButtonsDom();
+  buyButtons.forEach((buyButton) => {
+    const newCart = addItem(cart, buyButton.item.name, buyButton.item.price);
+    if (getFreeShipping(newCart)) {
+      buyButton.showFreeShippingIcon();
+    } else {
+      buyButton.hideFreeShippingIcon();
+    }
+  });
+}
+```
+
+## 코드 다시 살펴보기
+
+```typescript
+function addItemToCart(name: string, price: number) {
+  shoppingCart = addItem(shoppingCart, name, price);
+  calcCartTotal();
+}
+
+function calcCartTotal(cart: item[]) {
+  const total = calcTotal(cart);
+  setCartTotalDom(total);
+  updateShippingIcons(cart);
+  updateTaxDom(total);
+}
+
+// 변경
+function addItemToCart(name: string, price: number) {
+  shoppingCart = addItem(shoppingCart, name, price);
+  const total = calcTotal(shoppingCart);
+  setCartTotalDom(total);
+  updateShippingIcons(shoppingCart);
+  updateTaxDom(total);
+}
+```
+
+## 계산 분류하기
+
+의미 있는 계층에 알기 위해 계산을 분류
+
+- C : cart 에 대한 동작
+- I : Item에 대한 동작
+- B : 비지니스 로직
+
+```typescript
+// C I
+function addItem(cart: Item[], name: string, price: number) {
+  const newCart = [...cart];
+  newCart.push({ name, price });
+  return newCart;
+}
+
+// C I B
+function calcTotal(cart: Item[]) {
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+}
+
+// B
+function getFreeShipping(cart: item[]) {
+  return calcTotal(cart) >= 20;
+}
+
+// B
+function calcTax(amount: number) {
+  return amount * 0.1;
+}
+```
+
+## 원칙 : 설계는 엉켜있는 코드를 푸는 것이다
+
+- 재사용하기 쉽다.
+- 유지보수가 쉽다.
+- 테스트하기 쉽다.
+
+## addItem 개선
+
+### 분리해내기
+
+```typescript
+function addItem(cart: Item[], name: string, price: number) {
+  const newCart = [...cart]; // 1 배열을 복사
+  newCart.push({ name, price }); // 2 객체를 만들고, 3 복사본에 추가
+  return newCart; // 4 복사본 리턴
+}
+addItem(shoppingCart, 'shoe', 3.45);
+```
+
+```typescript
+// 생성자 함수
+function makeCartItem(name: string, price: number) {
+  return {
+    // 2 객체 생성
+    name: name,
+    price: price,
+  };
+}
+
+function addItem(cart: Item[], item: Item) {
+  const newCart = [...cart]; // 1 배열을 복사
+  newCart.push(item); // 3 복사본에 추가
+  return newCart; // 4 복사본 리턴
+}
+
+addItem(shoppingCart, makeCartItem('shoe', 3.45));
+```
+
+cart 의 구조를 바꿀 때 용이해졌다.
+
+### 카피-온-라이트 패턴 빼내기
+
+일반적인 이름으로 교체
+
+```typescript
+function addElementLast<T>(array: T[], elem: T): T[] {
+  const newArr = [...array];
+  newArr.push(elem);
+  return newArr;
+}
+```
+
+## 계산 분류하기 2
+
+- C : cart 에 대한 동작
+- I : Item에 대한 동작
+- B : 비지니스 로직
+- **A** : 배열 유틸리티
+
+```typescript
+// A
+function addElementLast<T>(array: T[], elem: T): T[] {
+  const newArr = [...array];
+  newArr.push(elem);
+  return newArr;
+}
+
+// C
+function addItem(cart: Item[], item: Item) {
+  const newCart = [...cart];
+  newCart.push(item);
+  return newCart;
+}
+
+// I
+function makeCartItem(name: string, price: number) {
+  return {
+    name: name,
+    price: price,
+  };
+}
+
+// C I B
+function calcTotal(cart: Item[]) {
+  let total = 0;
+  cart.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+}
+
+// B
+function getFreeShipping(cart: item[]) {
+  return calcTotal(cart) >= 20;
+}
+
+// B
+function calcTax(amount: number) {
+  return amount * 0.1;
+}
+```
