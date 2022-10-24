@@ -5,18 +5,18 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 
-// TODO Please change your repo name.
-const repoName = 'repoName';
+const repoName = 'imfp';
 
 const config = {
-  title: 'My Book',
-  tagline: 'detail',
-  url: 'https://your-site.com',
+  title: '쏙쏙 들어오는 함수형 코딩',
+  tagline: '심플한 코드로 복잡한 소프트웨어 길들이기',
+  url: 'https://dev-in-book.github.io',
   baseUrl: `/${repoName}/`,
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'dev-in-book',
+  projectName: "imfp",
   presets: [
     [
       '@docusaurus/preset-classic',
@@ -43,17 +43,17 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'My Book Nav Title',
+        title: '함수형 코딩',
         logo: {
           alt: 'dev-in-book',
-          src: 'img/scope_logo_765.png',
+          src: '../img/imfp.jpeg',
         },
         items: [
           {
             type: 'doc',
             docId: 'chapter_3',
             position: 'left',
-            label: '📕 detail',
+            label: '📕 시작하기',
           },
           { to: '/blog', label: '👨‍👩‍👧‍👦 참여자', position: 'left' },
           {
@@ -70,7 +70,7 @@ const config = {
             title: 'Docs',
             items: [
               {
-                label: 'BookName',
+                label: '함수형 코딩',
                 to: '/docs/chapter_3',
               },
               {
@@ -84,7 +84,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Dev in Book, Built with Docusaurus.`,
+        copyright: `${new Date().getFullYear()} Dev in Book, Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,
