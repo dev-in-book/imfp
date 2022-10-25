@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdevinbook_imfp=self.webpackChunkdevinbook_imfp||[]).push([[911],{971:function(e){e.exports=JSON.parse('{"allTagsPath":"/imfp/blog/tags","slug":"/imfp/blog/tags/introduce","name":"introduce","count":1,"permalink":"/imfp/blog/tags/introduce"}')}}]);

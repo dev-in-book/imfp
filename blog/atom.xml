@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://dev-in-book.github.io/imfp/blog</id>
+    <title>쏙쏙 들어오는 함수형 코딩 Blog</title>
+    <updated>2021-08-26T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://dev-in-book.github.io/imfp/blog"/>
+    <subtitle>쏙쏙 들어오는 함수형 코딩 Blog</subtitle>
+    <icon>https://dev-in-book.github.io/imfp/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Member]]></title>
+        <id>member</id>
+        <link href="https://dev-in-book.github.io/imfp/blog/member"/>
+        <updated>2021-08-26T00:00:00.000Z</updated>
+        <author>
+            <name>Positiveko</name>
+            <uri>https://github.com/positiveko</uri>
+        </author>
+        <author>
+            <name>saengmotmi</name>
+            <uri>https://github.com/saengmotmi</uri>
+        </author>
+        <author>
+            <name>Jtree03</name>
+            <uri>https://github.com/jtree03</uri>
+        </author>
+        <author>
+            <name>yongsk0066</name>
+            <uri>https://github.com/yongsk0066</uri>
+        </author>
+    </entry>
+</feed>

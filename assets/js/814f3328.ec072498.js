@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdevinbook_imfp=self.webpackChunkdevinbook_imfp||[]).push([[535],{5641:function(e){e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Member","permalink":"/imfp/blog/member"}]}')}}]);

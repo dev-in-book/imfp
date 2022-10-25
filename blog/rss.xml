@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>쏙쏙 들어오는 함수형 코딩 Blog</title>
+        <link>https://dev-in-book.github.io/imfp/blog</link>
+        <description>쏙쏙 들어오는 함수형 코딩 Blog</description>
+        <lastBuildDate>Thu, 26 Aug 2021 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[Member]]></title>
+            <link>https://dev-in-book.github.io/imfp/blog/member</link>
+            <guid>member</guid>
+            <pubDate>Thu, 26 Aug 2021 00:00:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>
