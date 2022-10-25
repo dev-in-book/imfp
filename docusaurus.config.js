@@ -16,7 +16,7 @@ const config = {
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'dev-in-book',
-  projectName: "imfp",
+  projectName: 'imfp',
   presets: [
     [
       '@docusaurus/preset-classic',
@@ -46,7 +46,7 @@ const config = {
         title: '함수형 코딩',
         logo: {
           alt: 'dev-in-book',
-          src: '../img/imfp.jpeg',
+          src: '/img/imfp.jpeg',
         },
         items: [
           {
