@@ -16,7 +16,7 @@ const AUTHORS = {
   },
   Jtree03: {
     name: 'Jtree03',
-    title: 'Front End Engineer',
+    title: 'Software Engineer',
     url: 'https://github.com/jtree03',
     image_url: 'https://github.com/jtree03.png',
   },
