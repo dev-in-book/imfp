@@ -1,0 +1,107 @@
+import Authors from './Authors.tsx';
+
+# 11장 일급 함수 2
+
+<Authors bookLeader="Jtree03" />
+
+## 이번 장에서 살펴볼 내용
+
+- 함수 본문을 콜백으로 바꾸기 리팩터링에 대해 더 알아봅니다.
+- 함수를 리턴하는 함수가 가진 강력한 힘을 이해합니다.
+- 고차 함수에 익숙해지기 위해 여러 고차 함수를 만들어 봅니다.
+
+## 카피-온-라이트 리팩터링하기
+
+### 함수 본문을 콜백으로 바꾸기 단계
+
+1. 본문과 앞부분, 뒷부분을 확인하기
+2. 함수 빼내기
+3. 콜백 빼내기
+
+### 카피-온-라이트 단계
+
+1. 복사본을 만듭니다.
+2. 복사본을 변경합니다.
+3. 복사본을 리턴합니다.
+
+## 배열에 대한 카피-온-라이트 리팩터링
+
+```typescript
+function arraySet<T>(array: Array<T>, idx: number, value: T) {
+  const copy = array.slice();
+  copy[idx] = value;
+  return copy;
+}
+```
+
+```typescript
+function arraySet<T>(array: Array<T>, idx: number, value: T) {
+  return withArrayCopy(array, (copy) => {
+    copy[idx] = value;
+  });
+}
+
+function withArrayCopy<T>(array: Array<T>, modify: (t: Array<T>) => Array<T>) {
+  const copy = array.slice();
+  modify(copy);
+  return copy;
+}
+// = Array.map
+```
+
+### 리팩터링으로 얻은 것
+
+1. 표준화된 원칙
+2. 새로운 동작에 원칙을 적용할 수 있음
+3. 여러 개를 변경할 때 최적화
+
+```typescript
+const sortedArray = withArrayCopy(array, (copy) => SuperSorter.sort(copy));
+```
+
+## 함수를 리턴하는 함수
+
+```typescript
+function saveUserDataWithLogging(args) {
+  try {
+    saveUserData(args);
+  } catch (error) {
+    logToSnapErrors(error);
+  }
+}
+
+function fetchProductWithLogging(args) {
+  try {
+    fetchProduct(args);
+  } catch (error) {
+    logToSnapErrors(error);
+  }
+}
+```
+
+```typescript
+function wrapLogging(voidFunction: VoidFunction) {
+  return (...args) => {
+    try {
+      voidFunction(args);
+    } catch (error) {
+      logToSnapErrors(error);
+    }
+  };
+}
+
+const saveUserDataWithLogging = wrapLogging(saveUserData);
+const fetchProductWithLogging = wrapLogging(fetchProduct);
+```
+
+## 결론
+
+- 일급 값: 변수에 저장하거나 인자로 전달하거나 함수의 리턴값으로 사용할 수 있습니다.
+- 일급 함수: 함수를 일급 값으로써 취급할 수 있습니다.
+- 고차 함수: 함수를 인자로 받거나 함수를 리턴하는 함수 입니다. (입력과 출력 중 함수가 포함됨)
+
+## 요점 정리
+
+- 고차 함수로 패턴이나 원칙을 코드로 만들 수 있습니다.
+- 고차 함수로 함수를 리턴하는 함수를 만들 수 있습니다.
+- 고차 함수는 가독성을 해칠 수 있으므로 적절하게 써야합니다.
