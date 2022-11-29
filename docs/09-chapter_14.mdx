@@ -1,0 +1,262 @@
+import Authors from './Authors.tsx';
+
+# 14장 중첩된 데이터에 함수형 도구 사용하기
+
+<Authors bookLeader="saengmotmi" />
+
+## 이번 장에서 살펴볼 내용
+
+- 해시 맵에 저장된 값을 다루기 위한 고차 함수를 만듭니다.
+- 중첩된 데이터를 고차 함수로 쉽게 다루는 방법을 배웁니다.
+- 재귀를 이해하고 안전하게 재귀를 사용하는 방법을 살펴봅니다.
+- 깊이 중첩된 엔티티에 추상화 벽을 적용해서 얻을 수 있는 장점을 이해합니다.
+
+카피-온-라이트 기법에 대해 알아보면서 이야기하기도 했지만 중첩된 데이터를 불변값으로 다루기란 쉬운 일이 아닙니다. 중첩된 객체에 참조로 접근할 수 있다는 사실은 언제든 그 객체가 개발자 모르게 혹은 부주의로 인하여 쉽게 손상될 수 있음을 뜻하기 때문이죠.
+
+이러한 중첩된 객체들을 함수형 프로그래밍의 방식으로 안전하게 다루는 또 다른 기법에 대해 알아보겠습니다. 먼저 객체를 다루기 위한 고차 함수를 직접 만들고 리팩터링하며 이야기해보겠습니다.
+
+## 필드명을 명시적으로 만들기
+
+### 주어진 함수들을 리팩터링 해보자
+
+```ts
+// 수량 필드명이 함수에 하드코딩 되어있음
+function incrementQuantity(item: Item) {
+  const quantity = item.quantity;
+  const newQuantity = quantity + 1;
+  const newItem = objectSet(item, 'quantity', newQuantity);
+  return newItem;
+}
+```
+
+```ts
+// 크기 필드명이 함수에 하드코딩 되어있음
+function incrementSize(item: Item) {
+  const size = item.size;
+  const newSize = size + 1;
+  const newItem = objectSet(item, 'size', newSize);
+  return newItem;
+}
+```
+
+두 함수는 함수 이름에 암묵적 인자가 들어 있습니다. 이전 장에서 배운 방식대로 `암묵적 인자를 드러내기` 리팩터링 해보겠습니다.
+
+```ts
+function incrementField(item: Item, field: string) {
+  const value = item[field];
+  const newValue = value + 1;
+  const newItem = objectSet(item, field, newValue);
+  return newItem;
+}
+```
+
+하지만 더하기, 빼기, 곱하기, 나누기, ... 등의 연산을 수행하는 함수를 만들려면 어떻게 해야 할까요? 이런 함수들은 모두 `업데이트`를 하기 위한 목적을 가지고 있습니다. 또 한겹의 중복이 눈에 띕니다. `업데이트`를 하기 위한 목적을 가지고 있는 함수들을 `업데이트` 함수로 만들어보겠습니다.
+
+인자로 객체를 받고, 어떤 키값에 접근할지에 대한 단서를 함께 제공하면 원하는 인터페이스를 구성할 수 있을 것 같습니다.
+
+```ts
+function incrementField(item: Item, field: string) {
+  return updateField(item, field, function (value) {
+    return value + 1;
+  });
+}
+
+function updateField(item: Item, field: string, modify: (value: any) => any) {
+  const value = item[field];
+  const newValue = modify(value);
+  const newItem = objectSet(item, field, newValue); // objectSet은 카피-온-라이트를 수행하는 함수
+  return newItem;
+}
+```
+
+`함수 본문을 콜백으로 바꾸기` 리팩터링을 통해 `updateField` 함수에 콜백을 전달하였고, 제어권을 전달 받은 본래 함수는 콜백을 호출하는 모습을 볼 수 있습니다.
+
+## 함수형 도구 : update()
+
+`update()`는 객체(해시 맵 대신 쓰고 있는)를 다루는 함수형 도구로, 값 하나를 인자로 받아 객체에 적용합니다. 하나의 키에 하나의 값을 변경합니다. 따라서 1) 객체, 2) 변경할 값이 어디 있는지 알려주는 키, 3) 값을 변경하는 동작이 서술된 함수, 총 3가지 요소가 필요합니다.
+
+앞선 코드에서 `update()`만 추출해보겠습니다.
+
+```ts
+function update(
+  object: Record<string, any>,
+  key: string,
+  modify: (value: any) => any
+) {
+  const value = object[key];
+  const newValue = modify(value);
+  const newObject = objectSet(item, key, newValue);
+  return newObject;
+}
+```
+
+`update()`에 전달하는 함수는 값을 돌려주는 `계산`이어야 하고, 현재 값을 인자로 받아 새로운 계산 값을 리턴합니다.
+
+이제 앞선 예제에서의 `incrementField()`를 `update()`를 사용하여 다시 작성해보겠습니다.
+
+```ts
+function incrementField(item: Item, field: string) {
+  return update(item, field, function (value) {
+    return value + 1;
+  });
+}
+```
+
+사실 이름 말고는 달라질 건 없습니다만, Item이라는 맥락을 벗어나서 어떤 객체에서든 사용할 수 있는 함수가 되었습니다. 여기에서 update의 세 번째 인자로 넘겨준 콜백 함수 덕분에 update 함수는 동작을 개발자에게 위임하고, 다양한 동작을 할 수 있게 되었습니다.
+
+## 중첩된 update 시각화하기
+
+update 함수를 작성하여 객체를 다룰 수 있게 되었습니다. 하지만 객체가 꼭 한 단계만 있을 수 있는 것은 아닙니다. 객체 안에 객체가 있을 수도 있고, 객체 안에 배열이 있을 수도 있습니다. 중첩된 객체를 다룰 수 있도록 조금 더 손봐주도록 하겠습니다.
+
+## 중첩된 데이터에 update() 사용하기
+
+```ts
+function incrementSize(item: Item) {
+  return update(item, 'size', function (value) {
+    return update(value, 'width', function (value) {
+      return value + 1;
+    });
+  });
+}
+```
+
+앞서 작성했던 incrementSize 함수를 update를 이용하여 한번 리팩터링 해보았습니다. 하지만 이렇게 작성하면 코드가 너무 길어지고, 가독성이 떨어집니다.
+
+우리는 'size' -> 'width' 순서대로 객체를 탐색할 계획입니다. 이처럼 순서에 의존하는 자료형으로는 배열이 가장 적합하겠습니다. 즉, 다음과 같은 형태의 코드가 되면 좋겠네요.
+
+```ts
+function incrementSize(item: Item) {
+  return update(item, ['size', 'width'], function (value) {
+    return value + 1;
+  });
+}
+```
+
+이제 이 코드를 작성해보겠습니다. 객체의 키를 타고 들어가며 `update`라는 동작을 반복해주면 됩니다. 하지만 for문을 가지고 작성하려니 코드가 지저분해질 것만 같고 조금 막막해지는 기분입니다.
+
+우리는 앞서 `문(Statement)`을 `표현식(Expression)`의 차이에 대하여 배운 바 있습니다. 이럴 때 자바스크립트에서 일급으로 취급하는 값인 함수를 이용하면 코드를 깔끔하게 작성할 수 있습니다. 즉, 재귀를 사용하는 것이지요.
+
+```ts
+function update<T>(target: T, path: string[], updater: (value: any) => any): T {
+  // 재귀 종료 조건
+  if (path.length === 0) {
+    return updater(target);
+  }
+  // 경로에서 첫번째 키를 추출한 다음, 나머지 경로는 다음 재귀 호출에 전달
+  const [key, ...rest] = path;
+  return update(target[key], rest, updater);
+}
+```
+
+## 안전한 재귀 사용법
+
+이렇게 재귀를 사용하면 코드가 깔끔해지지만, 재귀를 사용할 때는 주의해야 할 점이 있습니다. 재귀를 사용할 때는 반드시 종료 조건을 명시해주어야 합니다. 그렇지 않으면 무한 루프에 빠질 수 있습니다.
+
+개인적으로 생각하기에 재귀는 함수형 프로그래밍이 가지는 정말 강력한 도구 중 하나라고 생각합니다. 객체지향에서 각 클래스가 특정 역할을 수행하도록 책임을 나누는 것과 같이, 함수형 프로그래밍에서는 재귀가 특정 동작을 수행하도록 동작을 추상화하는 것이라고 생각합니다.
+
+### 1. 종료 조건
+
+재귀를 멈추려면 종료 조건이 필요합니다. 위의 코드에서는 `path.length === 0`이 종료 조건입니다. 이 조건이 없다면 무한 루프에 빠질 수 있습니다.
+
+배열의 인자가 비었다는 조건이나, 점점 줄어드는 어떠한 값을 종료 조건으로 만들 수 있습니다.
+
+### 2. 재귀 호출
+
+재귀를 사용할 때는 최소한 하나의 재귀 호출(recursive call)이 있어야 합니다. 재귀 호출이 없다면 재귀는 단순히 반복문과 다를 바가 없습니다.
+
+위의 코드에서는 `update(target[key], rest, updater)`가 재귀 호출입니다.
+
+### 3. 종료 조건에 다가가기
+
+재귀 함수를 만들 때는 최소 하나 이상의 인자가 점점 줄어들어 종료 조건으로 다가가야 합니다. 만약 배열을 기준으로 종료 조건을 잡고 있다면, 각 단계를 거칠 때마다 배열의 항목이 사라져야 합니다.
+
+위의 코드에서는 `path`가 `rest`로 점점 줄어들어 종료 조건으로 다가가고 있습니다.
+
+## 깊이 중첩된 구조를 설계할 때 생각할 점
+
+하지만 여전히 문제가 남아있습니다. 처음보다는 훨씬 사용하기 좋은 인터페이스의 함수가 되었지만, 그 반대 급부로 특정 상황에서 사용하는 경우 사용자가 update 함수에 너무 많은 구체적인 정보를 전달해야 한다는 부작용이 생겼습니다.
+
+아래 코드를 살펴보겠습니다.
+
+```ts
+httpGet('http://my-blog/com/api/category/blog', (blogCategory) => {
+  renderCategory(
+    update(blogCategory, ['posts', '12', 'author', 'name'], (name) =>
+      name.toUpperCase()
+    )
+  );
+});
+```
+
+과연 `["posts", "12", "author", "name"]`이 무엇을 의미하는지 알 수 있을까요? 이 코드는 블로그 카테고리의 12번째 포스트의 작성자의 이름을 대문자로 바꾸는 코드입니다. 하지만 이 코드를 처음 보는 사람은 이 코드가 무엇을 의미하는지 알기 어렵습니다.
+
+이럴 때는 적당히 추상화를 해서 사용자가 너무 많은 정보를 전달하지 않도록 해야 합니다. 바로 `추상화 벽`을 이용할 때입니다.
+
+특정한 포스트를 id를 기준으로 찾아 수정하는 함수를 만들어보겠습니다.
+
+```ts
+function updatePostById(
+  category: Category,
+  postId: string,
+  modifyPost: (post: Post) => Post
+): Category {
+  return update(category, ['posts', postId], modifyPost);
+}
+```
+
+사용자 이름을 대문자로 바꾸는 함수를 만들어볼 수도 있습니다.
+
+```ts
+function capitalizeName(user: User) {
+  return update(user, ['name'], (name) => name.toUpperCase());
+}
+```
+
+추상화 벽으로 감싼 두 함수를 합치면 다음과 같은 결과물을 얻을 수 있습니다.
+
+```ts
+httpGet('http://my-blog/com/api/category/blog', (blogCategory) => {
+  renderCategory(
+    updatePostById(blogCategory, '12', (post) => capitalizeName(post.author))
+  );
+});
+```
+
+## 앞에서 배운 고차 함수들
+
+그동안 배운 고차 함수들을 정리해보겠습니다.
+
+### 배열을 반복할 때 for 반복문 대신 사용하기
+
+- forEach()
+- map()
+- filter()
+- reduce()
+
+### 중첩된 데이터를 효율적으로 다루기
+
+- update()
+- nestedUpdate()
+
+### 카피-온-라이트 원칙 적용하기
+
+- withArrayCopy()
+- withObjectCopy()
+
+### try/catch 로깅 규칙을 코드화
+
+- wrapLogging()
+
+## 요점 정리
+
+- update()는 일반적인 패턴을 구현한 함수형 도구입니다. 이 함수를 사용하면 중첩된 데이터를 효율적으로 다룰 수 있습니다.
+
+- nestedUpdate()는 update()를 확장한 함수입니다. 키 경로를 배열로 전달하면 깊이 중첩된 데이터도 쉽게 다룰 수 있습니다.
+
+- 보통 일반적인 반복문은 재귀보다 명확합니다. 하지만 중첩된 데이터를 다룰 때는 재귀가 더 쉽고 명확합니다.
+
+- 재귀는 스스로 불렸던 곳이 어디인지 유지하기 위해 스택을 사용합니다. 재귀 함수에서 스택은 줕첩된 데이터 구조를 그대로 반영합니다. (오호;)
+
+- 깊이 중첩된 데이터는 이해하기 어렵습니다. 깊이 중첩된 데이터를 다룰 때 모든 데이터 구조와 어떤 경로에 어떤 키가 있는지 기억해야 합니다.
+
+- 많은 키를 가지고 있는 깊이 중첩된 구조에 추상화 벽을 사용하면 알아야 할 것이 줄어듭니다. 추상화 벽으로 깊이 중첩된 데이터 구조를 쉽게 다룰 수 있습니다.
