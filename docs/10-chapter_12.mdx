@@ -1,0 +1,169 @@
+import Authors from './Authors.tsx';
+
+# 12장 함수형 반복
+
+<Authors bookLeader="yongsk0066" />
+
+## 이번 장에서 살펴볼 내용
+
+- 함수형 도구 map, filter, reduce 에 대해 탐구
+- 반복문을 함수형 도구로 바꿔보기
+
+## 쿠폰 이메일 처리 로직 바꿔보기
+
+```typescript
+const emailsForCustomers(customers, goods, bests) => {
+  const emails = [];
+  for(let i = 0; i < customers.length; i++){
+    const customer = customer[i];
+    const email = emailForCustomer(customer, good, best);
+    emails.push(email);
+  }
+return emails
+}
+```
+
+### forEach 를 이용해서 바꿔보기 (불필요한 부분 제거)
+
+```typescript
+const emailsForCustomers(customers, goods, bests) => {
+  const emails = [];
+  customers.forEach(customer => {
+    const email = emailForCustomer(customer, good, best);
+    emails.push(email);
+  })
+  return emails
+}
+```
+
+### map 을 이용해서 바꿔보기
+
+```typescript
+const map = (array, fn) => {
+  const newArray = [];
+  forEach(array, item => {
+    newArray.push(fn(item));
+  })
+  return newArray;
+}
+
+
+const emailsForCustomers(customers, goods, bests) => {
+  return map(customers, customer => {
+    return emailForCustomer(customer, good, best);
+  })
+}
+```
+
+## map()
+
+map() 은 X 값이 있는 배열을 받아서 Y 값이 있는 배열을 반환한다.
+X->Y 로 변환하는 함수 xToY() 를 필요로 한다.
+
+map에 계산을 넘기면 map을 사용하는 코드도 계산이 되고, 액션을 넘기면 액션이 된다.
+
+## 함수를 전달하는 세가지 방법
+
+### 전역으로 정의하기
+
+```typescript
+const greet(name) => {
+  return `Hello, ${name}!`;
+}
+
+const friendGreetings = map(friends, greet);
+```
+
+### 지역적으로 정의하기
+
+```typescript
+const greetEveryBody = (friends) => {
+  const greet = (name) => {
+    return `Hello, ${name}!`;
+  };
+  return map(friends, greet);
+};
+```
+
+### 인라인으로 정의하기
+
+```typescript
+const friendGreetings = map(friends, (name) => {
+  return `Hello, ${name}!`;
+});
+```
+
+## filter()
+
+filter() 는 X 값이 있는 배열을 받아서 순서를 유지하면서 통과하는 Y 값이 있는 배열을 반환한다.
+
+```typescript
+const selectBestCustomers = (customers) => {
+  const newArray = [];
+  forEach(customers, (customer) => {
+    if (customer.purchases.length >= 3) {
+      newArray.push(customer);
+    }
+  });
+  return newArray;
+};
+```
+
+```typescript
+const selectBestCustomers = (customers) => {
+  return filter(customers, (customer) => {
+    return customer.purchases.length >= 3;
+  });
+};
+
+const filter = (array, fn) => {
+  const newArray = [];
+  forEach(array, (item) => {
+    if (fn(item)) {
+      newArray.push(item);
+    }
+  });
+  return newArray;
+};
+```
+
+## reduce()
+
+reduce() 는 배열을 순회하면서 값을 누적하는 함수이다.
+
+```typescript
+const countAllPurchases = (customers) => {
+  let total = 0;
+  forEach(customers, (customer) => {
+    total += customer.purchases.length;
+  });
+  return total;
+};
+```
+
+```typescript
+const countAllPurchases = (customers) => {
+  return reduce(
+    customers,
+    (total, customer) => {
+      return total + customer.purchases.length;
+    },
+    0
+  );
+};
+
+const reduce = (array, fn, initial) => {
+  let acc = initial;
+  forEach(array, (item) => {
+    acc = fn(acc, item);
+  });
+  return acc;
+};
+```
+
+### reduce()로 할 수 있는 것들
+
+- 실행 취소 / 실행 복귀
+- 테스트 할 때 사용자 입력을 다시 실행하기
+- 시간여행 디버깅
+- 회계감사 추적
