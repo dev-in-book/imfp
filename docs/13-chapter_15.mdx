@@ -1,0 +1,342 @@
+import Authors from './Authors.tsx';
+
+# 15장 타임라인 격리하기
+
+<Authors bookLeader="positiveko" />
+
+## 이번 장에서 살펴볼 내용
+
+- 코드를 타임라인 다이어그램으로 그리는 방법을 배웁니다.
+- 버그를 찾기 위해 타임라인 다이어그램 보는 법을 이해합니다.
+- 타임라인끼리 공유하는 자원을 줄여 코드 설계를 개선하는 방법을 알아봅니다.
+
+<br /> <br />
+## 장바구니 버튼을 빠르게 두 번 클릭했을 때 일어나는 일
+
+```ts
+const calc_cart_total = () => {
+  total = 0;
+  cost_ajax(cart, (cost) => {
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      total += shipping;
+      update_total_dom(total);
+    });
+  });
+};
+
+const add_item_to_cart = (name: string, price: number, quantity: number) => {
+  cart = add_item(cart, name, price, quantity);
+  calc_cart_total();
+};
+```
+
+빠르게 클릭했을 때 동일하지 않은 결과가 나왔다. 장바구니 금액이 계속 변화했다. <br />
+이제 여기에서 왜 버그가 나타났는지, 어떻게 해결하는지 타임라인 다이어그램을 통해 알아보자.
+
+<br />
+<br />
+
+## 두 가지 타임라인 다이어그램 기본 규칙
+
+> 1. 두 액션이 순서대로 나타나면 같은 타임라인, <br />
+> 2. 두 액션이 동시에 실행되거나 순서를 예상할 수 없다면 분리된 타임라인에 넣는다.
+
+이런 규칙을 이용해 타임라인 다이어그램으로 그리면 코드가 시간이 지나며 어떻게 실행되는지 파악할 수 있다.
+
+<br />
+<br />
+
+## 액션 순서에 관한 두 가지 사실
+
+### 1. ++와 +=는 사실 3단계!
+
+400쪽을 보면 사실 `total++`라는 것이 3단계로 이루어진다고 설명한다.
+
+```ts
+let temp = total; // 읽기 (액션)
+temp = temp + 1; // 더하기 (계산)
+total = temp; // 쓰기 (액션)
+```
+
+따라서! 다이어그램으로 그리게 되면 두 개의 액션으로 표시해야 한다. (읽기 + 쓰기)
+
+### 2. 인자는 함수를 부르기 전에 실행합니다.
+
+인자는 함수에 전달되기 전에 실행되므로, 타임라인 다이어그램을 그릴 때에 순서대로 표현해야 한다.
+`console.log(total)`이라는 코드는 아래와 같이 2단계로 일어난다. (total 읽기 + console.log())
+
+```ts
+const temp = total;
+console.log(temp);
+```
+
+이와 같은 2가지 액션 순서에 대한 배경 지식을 가지고 본격적으로 타임라인을 그려보도록 하자..
+
+## add-to-cart 타임라인 그리기
+
+타임라인을 그리는 단계는 3단계로 정리할 수 있다.
+
+> 1. 액션을 확인하고, <br />
+> 2. 순서대로 실행되거나 동시에 실행되는 액션을 그린다.<br />
+> 3. 마지막으로 플랫폼에 특화된 지식을 활용하여 다이어그램을 단순화한다.
+
+<br /> <br />
+
+### 1단계: 액션을 확인한다.
+
+![Identify the actions](https://drek4537l1klr.cloudfront.net/normand/Figures/figure_14-3.png)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+밑줄 친 부분은 모두 액션. 계산은 다이어그램에 포함하지 않는다. (실행 순서와는 관련이 없으니!) <br />
+총 13개의 액션 중에도 비동기 콜백 두 개가 보인다. (5번, 9번)
+
+#### 비동기 호출은 새로운 타임라인으로 그리자
+
+앞에서 비동기 콜백은 새로운 타임라인으로 그려야 한다는 것을 배웠다. <br />
+여기서 자바스크립트 비동기 콜백이 어떻게 동작하는지 되짚어보자.
+
+> - 단일 스레드, 비동기: 스레드가 하나이기 때문에 입출력 작업을 하려면 비동기 모델 사용해야 함. 입출력의 결과는 콜백으로 받을 수 있으나
+>   언제 끝날지 알 수 없기 때문에 타임라인을 분리해야 함.
+
+#### 한 단계씩 타임라인 만들기
+
+앞에서 이야기한 배경지식을 가지고 아래의 코드를 타임라인으로 만들어보자.
+
+```ts
+// 1
+saveUserAjax(user, () => {
+  setUserLoadingDOM(false); // 2
+});
+setUserLoadingDOM(true); // 3
+// 4
+saveDocumentAjax(document, () => {
+  setDocLoadingDOM(false); // 5
+});
+setDocLoadingDOM(true); // 6
+```
+
+결과물은 아래와 같다.
+
+![1 step](https://drek4537l1klr.cloudfront.net/normand/Figures/f0405-04.jpg)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+{' '}
+
+<br /> <br />
+
+### 2단계: 순서대로 실행되거나 동시에 실행되는 액션을 그린다.
+
+이번에는 앞서 이야기 나눴던 장바구니 코드를 가지고 타임라인을 작성해보자.
+
+![2 step](https://drek4537l1klr.cloudfront.net/normand/Figures/figure_14-7.png)
+위와 같이 액션을 확인했다. 다이어그램을 그려보면 아래와 같다.
+
+![2 step](https://drek4537l1klr.cloudfront.net/normand/Figures/f0406-01.jpg)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+#### 타임라인 다이어그램으로 순서대로 실행되는 코드에도 두 가지 종류가 있다는 것을 알 수 있다.
+
+<table>
+  <thead>
+    <tr>
+      <th>순서가 섞일 수 있는 코드</th>
+      <th>순서가 섞이지 않는 코드</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <img src="https://drek4537l1klr.cloudfront.net/normand/Figures/f0407-01.jpg" />
+      </td>
+      <td>
+        <img src="https://drek4537l1klr.cloudfront.net/normand/Figures/f0407-02.jpg" />
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+왼쪽은 다른 타임라인에 있는 액션이 끼어들 수 있는 반면 오른쪽에서는 그런 일이 발생하지 않는다. 따라서 타임라인을 짧게, 즉 박스를 더 적게 가져가는 것이 관리하기 쉽다.
+
+#### 타임라인 다이어그램으로 동시에 실행되는 코드는 순서를 예측할 수 없다는 것을 알 수 있다.
+
+타임라인에서 나란히 표현된 액션은 정확한 순서를 예측할 수 없다. 타임라인이 하나라면 실행 가능한 순서는 하나이겠지만 박스가 많아질수록, 타임라인이 늘어날수록
+예상 가능한 실행 순서는 배로 늘어난다는 사실을 알아야 한다.
+
+![Timeline diagrams capture the uncertain ordering of parallel code](https://drek4537l1klr.cloudfront.net/normand/Figures/f0408-02.jpg)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+#### 좋은 타임라인의 원칙
+
+1. 타임라인은 적을수록 이해하기 쉽다.
+   > 하지만 요즘의 시스템은 어쩔 수 없이 여러 타임라인이 존재한다.
+2. 타임라인은 짧을수록 이해하기 쉽다.
+   > 그래야 실행 가능한 순서의 수도 줄어드니까!
+3. 공유하는 자원이 적을수록 이해하기 쉽다.
+   > 서로 자원을 공유하지 않는다면 실행 순서를 신경 쓸 필요가 없으니까!
+4. 자원을 공유해야 한다면 서로 조율해야 한다.
+   > 피할 수 없다면 안전하게라도 공유해라. 즉 올바른 순서대로 자원을 쓰고 돌려줘라.
+5. 시간을 일급으로 다룬다.
+   > 재사용 가능한 객체를 만들면 타이밍 문제를 쉽게 만들 수 있는데~ 요거는 다음 시간 북리더가 설명해줄 것..
+
+<br /> <br />
+
+### 3단계: 타임라인 단순화하기
+
+우리는 자바스크립트가 비동기를 어떻게 처리하는지 알고 있다. 따라서 넘어가겠다.
+
+> 1. 자바스크립트는 싱글스레드 언어이기 때문에 하나의 타임라인에 있는 모든 액션을 하나로 통합할 수 있었다.
+>    ![Consolidate all actions on a single timeline](https://drek4537l1klr.cloudfront.net/normand/Figures/f0415-02.jpg)
+> 2. 그리고 타임라인이 끝나는 곳에서 새로운 타임라인이 하나 생긴다면 통합할 수 있다.
+>    하지만 이 경우 첫 번째 타임라인이 끝나는 곳에 새로운 타임라인이 2개 생기므로 통합하지 않았다.
+>    이런 경우 예상 가능한 실행 순서는 2가지다.
+
+![Consolidate all actions on a single timeline](https://drek4537l1klr.cloudfront.net/normand/Figures/f0420-03.jpg)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+이번에는 `add-to-cart` 타임라인을 똑같은 과정을 거쳐 단순화해보자.
+
+> 1. 자바스크립트는 싱글스레드 언어이기 때문에 하나의 타임라인에 있는 모든 액션을 하나로 통합할 수 있었다.
+>    ![Consolidate all actions on a single timeline](https://drek4537l1klr.cloudfront.net/normand/Figures/f0423-01.jpg)
+> 2. 그리고 타임라인이 끝나는 곳에서 새로운 타임라인이 하나 생긴다면 통합할 수 있다.
+>    ![Consolidate all actions on a single timeline](https://drek4537l1klr.cloudfront.net/normand/Figures/f0423-02.jpg)
+
+<br /><br />
+
+## 타임라인을 나란히 보면 문제가 보인다
+
+![Two fast clicks can get the wrong result](https://drek4537l1klr.cloudfront.net/normand/Figures/f0429-01.jpg)
+출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
+
+실행 가능한 순서는 10가지. 어떻게 해결할 수 있을까?
+
+<br /><br />
+
+## 공유하는 자원을 없애 문제를 해결하자
+
+결국 지금 발생하는 문제는 공유하는 자원 때문에 발생한다. 두 타임라인 모두 cart, total이라는 전역변수를 공유하기 때문에 실행 순서가 섞인 상태로 전역변수에 접근하며 버그가 발생하는 것.
+
+### 1) 전역변수를 지역변수로 바꾸기
+
+total을 먼저 지역변수로 바꾸자.
+
+```ts
+const calc_cart_total = () => {
+  total = 0; // 전역변수
+  cost_ajax(cart, (cost) => {
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      total += shipping;
+      update_total_dom(total);
+    });
+  });
+};
+```
+
+```ts
+const calc_cart_total = () => {
+  let total = 0; // 지역변수
+  cost_ajax(cart, (cost) => {
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      total += shipping;
+      update_total_dom(total);
+    });
+  });
+};
+```
+
+total을 읽고 쓰는 동작은 더이상 액션이 아니기 때문에 타임라인에서 빠진다.
+
+### 2) 전역변수를 인자로 바꾸기
+
+암묵적 입력이 적은 액션이 더 좋다는 것을 앞에서 배웠다.
+
+```ts
+const calc_cart_total = () => {
+  let total = 0;
+  cost_ajax(cart, (cost) => {
+    // 암묵적 인자
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      // 암묵적 인자
+      total += shipping;
+      update_total_dom(total);
+    });
+  });
+};
+
+const add_item_to_cart = (name: string, price: number, quantity: number) => {
+  cart = add_item(cart, name, price, quantity);
+  calc_cart_total();
+};
+```
+
+```ts
+const calc_cart_total = (cart: number) => {
+  let total = 0;
+  cost_ajax(cart, (cost) => {
+    // 전역변수를 읽지 않음
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      // 전역변수를 읽지 않음
+      total += shipping;
+      update_total_dom(total);
+    });
+  });
+};
+
+const add_item_to_cart = (name: string, price: number, quantity: number) => {
+  cart = add_item(cart, name, price, quantity);
+  calc_cart_total(cart); // 인자로 바꾸기
+};
+```
+
+![There’s still a bug in this code.](https://drek4537l1klr.cloudfront.net/normand/Figures/f0432-03.jpg)
+
+하지만 아직 버그가 남아 있는데, DOM 자원을 공유하고 있다. 요것은 다음 북리더가 친절하게 설명해 주실 것이다...
+
+> 그래서 이제 이 함수는 계산이 아닌가요?
+>
+> 전역변수를 모두 없애긴 했지만 이 함수는 계산이 아니다. 서버에 두 번 접근하기 때문이다. 또한 DOM을 업데이트하는 부분도 있다.
+> 둘 다 액션이기 때문에 아직은 계산이 아니지만.. 계산에 가까워졌다..!!<br/>
+> 따라서 이 함수는 실행 시점에 덜 의존하게 되었다.
+
+<br /><br />
+
+## 더 나아가 재사용하기 좋은 코드로 만들어보자
+
+4,5장에서 배운 것처럼 DOM을 바꾸는 것은 암묵적 출력이다. 하지만 비동기 콜백이 완료되어야 하기 때문에 리턴값으로는 전달할 수 없다.
+
+이럴 때에는 아래와 같이 콜백 함수로 전달하면 된다.
+
+```ts
+const add_item_to_cart = (name: string, price: number, quantity: number) => {
+  cart = add_item(cart, name, price, quantity);
+  calc_cart_total(cart, update_total_dom);
+};
+
+const calc_cart_total = (cart: number, callback: () => void) => {
+  // 콜백 인자로 바꾸기
+  let total = 0;
+  cost_ajax(cart, (cost) => {
+    total += cost;
+    shipping_ajax(cart, (shipping) => {
+      total += shipping;
+      callback(total);
+    });
+  });
+};
+```
+
+
+<br /><br />
+
+## 요점 정리
+
+- 타임라인 === 동시에 실행될 수 있는 순차적 액션
+- 서로 다른 타임라인에 있는 액션은 끼어들 수 있어서 여러 개의 실행 가능한 순서가 됨. 실행 가능한 순서가 많을 때 버그가 없는지 찾기 힘듦.
+- 타임라인 다이어그램으로 서로 영향을 주고 받는 부분이 어디인지 알 수 있음.
+- 언어에서 지원하는 스레드 모델을 이해해야 함. 분산 시스템에서 어떤 부분이 동시에 실행되고 순서대로 실행되는지 파악해야 함.
+- 자원을 공유하는 부분은 버그가 나기 쉬움. 따라서 공유 자원을 최소화할 것.
+- 자원을 공유하지 않는 타임라인은 독립적으로 이해하고 실행할 수 있음. 따라서 함께 생각해야 할 내용이 줄어듬.
