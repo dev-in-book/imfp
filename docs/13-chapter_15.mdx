@@ -11,6 +11,7 @@ import Authors from './Authors.tsx';
 - 타임라인끼리 공유하는 자원을 줄여 코드 설계를 개선하는 방법을 알아봅니다.
 
 <br /> <br />
+
 ## 장바구니 버튼을 빠르게 두 번 클릭했을 때 일어나는 일
 
 ```ts
@@ -106,22 +107,24 @@ console.log(temp);
 ```ts
 // 1
 saveUserAjax(user, () => {
-  setUserLoadingDOM(false); // 2
+  // 2
+  setUserLoadingDOM(false);
 });
-setUserLoadingDOM(true); // 3
+// 3
+setUserLoadingDOM(true);
 // 4
 saveDocumentAjax(document, () => {
-  setDocLoadingDOM(false); // 5
+  // 5
+  setDocLoadingDOM(false);
 });
-setDocLoadingDOM(true); // 6
+// 6
+setDocLoadingDOM(true);
 ```
 
 결과물은 아래와 같다.
 
 ![1 step](https://drek4537l1klr.cloudfront.net/normand/Figures/f0405-04.jpg)
 출처: https://livebook.manning.com/book/grokking-simplicity/chapter-15/1
-
-{' '}
 
 <br /> <br />
 
@@ -201,7 +204,8 @@ setDocLoadingDOM(true); // 6
 > 2. 그리고 타임라인이 끝나는 곳에서 새로운 타임라인이 하나 생긴다면 통합할 수 있다.
 >    ![Consolidate all actions on a single timeline](https://drek4537l1klr.cloudfront.net/normand/Figures/f0423-02.jpg)
 
-<br /><br />
+<br />
+<br />
 
 ## 타임라인을 나란히 보면 문제가 보인다
 
@@ -210,7 +214,8 @@ setDocLoadingDOM(true); // 6
 
 실행 가능한 순서는 10가지. 어떻게 해결할 수 있을까?
 
-<br /><br />
+<br />
+<br />
 
 ## 공유하는 자원을 없애 문제를 해결하자
 
@@ -302,7 +307,8 @@ const add_item_to_cart = (name: string, price: number, quantity: number) => {
 > 둘 다 액션이기 때문에 아직은 계산이 아니지만.. 계산에 가까워졌다..!!<br/>
 > 따라서 이 함수는 실행 시점에 덜 의존하게 되었다.
 
-<br /><br />
+<br />
+<br />
 
 ## 더 나아가 재사용하기 좋은 코드로 만들어보자
 
@@ -311,11 +317,6 @@ const add_item_to_cart = (name: string, price: number, quantity: number) => {
 이럴 때에는 아래와 같이 콜백 함수로 전달하면 된다.
 
 ```ts
-const add_item_to_cart = (name: string, price: number, quantity: number) => {
-  cart = add_item(cart, name, price, quantity);
-  calc_cart_total(cart, update_total_dom);
-};
-
 const calc_cart_total = (cart: number, callback: () => void) => {
   // 콜백 인자로 바꾸기
   let total = 0;
@@ -327,10 +328,15 @@ const calc_cart_total = (cart: number, callback: () => void) => {
     });
   });
 };
+
+const add_item_to_cart = (name: string, price: number, quantity: number) => {
+  cart = add_item(cart, name, price, quantity);
+  calc_cart_total(cart, update_total_dom);
+};
 ```
 
-
-<br /><br />
+<br />
+<br />
 
 ## 요점 정리
 
