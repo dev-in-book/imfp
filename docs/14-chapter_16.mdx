@@ -1,0 +1,267 @@
+import Authors from './Authors.tsx';
+
+# 16장 타임라인 사이에 자원 공유하기
+
+<Authors bookLeader="Jtree03" />
+
+## 이번 장에서 살펴볼 내용
+
+- 자원을 공유해서 생기는 버그를 찾는 방법을 배웁니다.
+- 안전하게 자원을 공유할 수 있는 자원 공유 기본형을 만드는 방법을 이해합니다.
+
+## 좋은 타임라인의 원칙
+
+1. 타임라인은 적을수록 이해하기 쉽습니다.
+2. 타임라인은 짧을수록 이해하기 쉽습니다.
+3. 공유하는 자원이 적을수록 이해하기 쉽습니다.
+4. 자원을 공유한다면 서로 조율해야 합니다.
+5. 시간을 일급으로 다룹니다.
+
+이번장에는 좋은 타임라인의 원칙 중 네번째 원칙에 집중합니다.
+이 방법을 사용하면 서로 안전하게 자원을 공유할 수 있습니다.
+
+## 장바구니에 아직 버그가 있습니다
+
+첫 번째 클릭: cart 읽기 -> cart 쓰기 -> DOM 업데이트
+두 번째 클릭: cart 읽기 -> cart 쓰기 -> DOM 업데이트
+
+첫번째 클릭과 두번째 클릭이 수행하는 작업중 DOM 을 사용하는 작업은 자원을 공유합니다.
+그러므로 해당 장바구니의 문제를 해결하기 위해서는 실행되는 순서를 보장해야합니다.
+
+## DOM이 업데이트되는 순서를 보장해야 합니다
+
+큐를 사용합니다. 큐는 FIFO 자료 구조로 실행한 순서를 보장해줍니다.
+micro task, macro task, 리액트 렌더링 등에도 큐를 사용합니다.
+
+## 자바스크립트에서 큐 만들기
+
+### 자바스크립트에는 큐 자료 구조가 없기 때문에 만들어야 합니다.
+
+큐는 자료 구조지만 타임라인 조율에 사용한다면 동시성 기본형(concurrency primitive)이라고 부릅니다.
+동시성 기본형은 자원을 안전하게 공유할 수 있는 재사용 가능한 코드를 말합니다.
+
+원래 타임라인
+클릭 핸들러: cart 읽기 -> cart 쓰기 -> cost_ajax() -> shipping_ajax() -> DOM 업데이트
+
+분리된 타임라인
+클릭 핸들러: cart 읽기 -> cart 쓰기 -> 나머지 작업들은 합쳐서 큐에 추가
+큐 작업: 큐에서 작업 꺼냄 -> cost_ajax() -> shipping_ajax() -> DOM 업데이트
+
+### 큐에서 처리할 작업을 큐에 넣기
+
+```typescript
+const queueItems: Cart[] = [];
+
+function updateTotalQueue(cart: Cart) {
+  queueItems.push(cart);
+}
+
+function onClickAddCart() {
+  cart = addItem(cart, item);
+  updateTotalQueue(cart);
+}
+```
+
+### 큐에 있는 첫 번째 항목을 실행합니다.
+
+```typescript
+function runNext() {
+  const cart = queueItems.shift();
+  calculateCartTotal(cart, updateTotalDOM);
+}
+
+function updateTotalQueue(cart: Cart) {
+  queueItems.push(cart);
+  setTimeout(runNext, 0);
+}
+```
+
+### 두 번째 타임라인이 첫 번째 타임라인과 동시에 실행되는 것을 막기
+
+```typescript
+let working = false;
+
+function runNext() {
+  if (working) return;
+  working = true;
+  const cart = queueItems.shift();
+  calculateCartTotal(cart, updateTotalDOM);
+}
+```
+
+참고 키워드: 임계 영역
+
+### 다음 작업을 시작할 수 있도록 calculateCartTotal() 콜백 함수를 고쳐봅시다.
+
+```typescript
+function runNext() {
+  if (working) return;
+  working = true;
+  const cart = queueItems.shift();
+  calculateCartTotal(cart, function (total) {
+    updateTotalDOM(total);
+    working = false;
+    runNext();
+  });
+}
+```
+
+### 항목이 없을 때 멈추게 하기
+
+```typescript
+function runNext() {
+  if (working) return;
+  if (!queueItems.length) return;
+  working = true;
+  const cart = queueItems.shift();
+  calculateCartTotal(cart, function (total: number) {
+    updateTotalDOM(total);
+    working = false;
+    runNext();
+  });
+}
+```
+
+### 변수와 함수를 함수 범위로 넣기
+
+```typescript
+function Queue() {
+  const queueItems: Cart[] = [];
+  let working = false;
+
+  function runNext() {
+    if (working) return;
+    if (!queueItems.length) return;
+    working = true;
+    const cart = queueItems.shift();
+    calculateCartTotal(cart, function (total: number) {
+      updateTotalDOM(total);
+      working = false;
+      runNext();
+    });
+  }
+
+  return function (cart: Cart) {
+    queueItems.push(cart);
+    setTimeout(runNext, 0);
+  };
+}
+
+const updateTotalQueue = Queue();
+```
+
+참고 키워드: 클로저, 내부 변수
+
+## 원칙: 공유하는 방법을 현실에서 착안하기
+
+인간은 자원을 공유를 자연스럽게 할 수 있지만 컴퓨터는 세세하게 지정해주어야 합니다.
+
+- 한 번에 한 명씩 쓸 수 있게 화장실 문을 잠글 수 있습니다. (줄서기, 락, 선점)
+- 공공 도서관은 지역사회가 많은 책을 공유할 수 있는 곳입니다. (시간 대여 시스템)
+- 칠판을 사용하면 선생님 한 명이 교실 전체에 정보를 공유할 수 있습니다. (publish, subscribe)
+
+## 큐를 재사용할 수 있도록 만들기
+
+### done 함수 빼내기
+
+```typescript
+function Queue() {
+  // ...
+  function worker(cart, done) {
+    calculateCartTotal(cart, function (total: number) {
+      updateTotalDOM(total);
+      done(total);
+    });
+  }
+
+  function runNext() {
+    // ...
+    worker(cart, function () {
+      working = false;
+      runNext();
+    });
+  }
+}
+```
+
+### 워커 행동을 바꿀 수 있도록 밖으로 뺍니다.
+
+```typescript
+function Queue(worker: (cart: Cart, done: VoidFunction) => void) {
+  // ...
+  function runNext() {
+    // ...
+    worker(cart, function () {
+      working = false;
+      runNext();
+    });
+  }
+}
+
+const updateTotalQueue = Queue(function (cart, done) {
+  calculateCartTotal(cart, function (total: number) {
+    updateTotalDOM(total);
+    done(total);
+  });
+});
+```
+
+### 작업이 끝났을 때 실행하는 콜백을 받기
+
+```typescript
+function Queue(worker: (cart: Cart, done: VoidFunction) => void) {
+  // ...
+  function runNext() {
+    // ...
+    const item = queueItems.shift();
+    worker(item.data, function () {
+      working = false;
+      runNext();
+    });
+  }
+
+  return function (data: Cart, callback: (value: number) => void) {
+    queueItems.push({ data, callback });
+    setTimeout(runNext, 0);
+  };
+}
+```
+
+### 작업이 완료되었을 때 콜백 부르기
+
+```typescript
+function Queue(worker: (cart: Cart, done: (value: number) => void) => void) {
+  // ...
+  function runNext() {
+    // ...
+    const item = queueItems.shift();
+    worker(item.data, function (value) {
+      working = false;
+      setTimeout(item.callback, 0, value);
+      runNext();
+    });
+  }
+}
+```
+
+### Queue() 는 액션에 새로운 능력을 줄 수 있는 고차 함수입니다.
+
+## 지금까지 만든 타임라인 분석하기
+
+## 원칙: 문제가 있을 것 같으면 타임라인 다이어그램을 살펴보세요
+
+## 큐를 건너뛰도록 만들기
+
+## 결론
+
+이 장에서 자원 공유 문제에 대해 살펴보았습니다.
+다이어그램을 통해 문제를 찾은 다음 큐로 해결합시다.
+
+## 요점 정리
+
+- 타이밍 문제는 재현하기 어렵고, 테스트로 확인하지 못 합니다.
+- 타임라인 다이어그램을 그려 분석하고 타이밍 문제를 확인해 보세요.
+- 자원 공유 문제가 있을 때 현실에서 해결 방법을 찾아보세요.
+- 재사용 가능한 도구를 만들면 자원 공유에 도움이 됩니다.
+- 자원 공유를 위한 도구를 동시성 기본형이라고 부릅니다.
+- 동시성 기본형은 액션을 고차 함수로 받습니다.
