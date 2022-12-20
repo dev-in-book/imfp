@@ -11,38 +11,233 @@ import Authors from './Authors.tsx';
 
 ## 좋은 타임라인의 원칙
 
+1. 타임라인은 적을수록 이해하기 쉽습니다.
+2. 타임라인은 짧을수록 이해하기 쉽습니다.
+3. 공유하는 자원이 적을수록 이해하기 쉽습니다.
+4. 자원을 공유한다면 서로 조율해야 합니다.
+5. 시간을 일급으로 다룹니다.
+
+이번 장에서는 다섯번째 원칙을 보겠습니다.
+이제부터 시간을 다룰 수 있는 대상으로 생각해야 합니다.
+
 ## 버그가 있습니다!
+
+장바구니에 큐를 적용해서 배포한 후 UI 반응 속도를 개선해달라는 요청이 많이 있었습니다.
+그래서 장바구니에 대한 속도 개선과 제품 추가 버튼에 대한 최적화를 했습니다.
+그러자 다음과 같은 버그가 발생하였습니다.
+
+장바구니 추가 버튼 클릭 -> 의도한 결과는 상품 금액 + 배송비 금액 -> 하지만 배송비 금액만 추가가 됨
 
 ## 코드가 어떻게 바뀌었나요
 
+```typescript
+function calculateCartTotal(cart: Cart, callback: (total: number) => void) {
+  let total = 0;
+  costAjax(cart, (cost) => {
+    total += cost;
+  }); // <- 2. 여기로 옮겼습니다.
+  shippingAjax(cart, (shipping) => {
+    total += shipping;
+    callback(total);
+  });
+  // }); <- 1. 원래 여기에 있던 괄호를
+}
+```
+
+즉, 상품 금액 계산 후 배송비를 계산하도록 한 로직을 상품 금액 계산과 배송비 계산 로직이 동시에 수행됩니다.
+비동기적으로 작동하면 속도는 빨라지지만 타이밍을 맞춰지지 않게 되었습니다.
+
 ## 액션을 확인하기: 단계 1
+
+```typescript
+function addItemToCart(item: Item) {
+  cart-2- = addItem(cart-1-, item);
+  updateTotalQueue-4-(cart-3-);
+}
+
+function calculateCartTotal(cart: Cart, callback: (total: number) => void) {
+  let total-5- = 0;
+  costAjax-6-(cart, (cost) => {
+    total-7- += cost;
+  });
+  shippingAjax-8-(cart, (shipping) => {
+    total-9- += shipping;
+    callback(total-10-);
+  });
+}
+
+function calculateCartWorker(cart: Cart, done: (total: number) => void) {
+  calculateCartTotal(cart, (total) => {
+    updateTotalDOM-11-(total);
+    done(total);
+  });
+}
+```
+
+코드에 있는 액션에 표시를 합니다. (여기서 숫자는 순서가 아닌 일련번호입니다.)
 
 ## 모든 액션을 그리기: 단계 2
 
+| 클릭핸들러               | 큐                   | costAjax      | shippingAjax            |
+| ------------------------ | -------------------- | ------------- | ----------------------- |
+| 1: cart 읽기             |                      |               |                         |
+| 2: cart 쓰기             |                      |               |                         |
+| 3: cart 읽기             |                      |               |                         |
+| 4: updateTotalQueue 호출 |                      |               |                         |
+|                          | 5: total 초기화      |               |                         |
+|                          | 6: costAjax 호출     |               |                         |
+|                          | 8: shippingAjax 호출 | 7: total 읽기 |                         |
+|                          |                      | 7: total 쓰기 |                         |
+|                          |                      |               | 9: total 읽기           |
+|                          |                      |               | 9: total 쓰기           |
+|                          |                      |               | 10: total 읽기          |
+|                          |                      |               | 11: updateTotalDOM 호출 |
+
+코드에서 확인한 액션 모두 다이어그램에 그렸습니다.
+자바스크립트에서 다이어그램을 단순화하기 위한 두단계를 적용해 봅시다.
+
 ## 다이어그램 단순화하기: 단계 3
+
+### 자바스크립트에서 단순화하기 위한 두 단계
+
+1. 액션을 통합합니다.
+2. 타임라인을 통합합니다.
+
+### 액션 통합
+
+| 클릭핸들러 | 큐      | costAjax | shippingAjax |
+| ---------- | ------- | -------- | ------------ |
+| 1, 2, 3, 4 |         |          |              |
+|            | 5, 6, 8 |          |              |
+|            |         | 7        |              |
+|            |         |          | 9, 10, 11    |
+
+### 타임라인 통합
+
+| 클릭핸들러, 큐 | costAjax | shippingAjax |
+| -------------- | -------- | ------------ |
+| 1, 2, 3, 4     |          |              |
+| 5, 6, 8        |          |              |
+|                | 7        |              |
+|                |          | 9, 10, 11    |
 
 ## 실행 가능한 순서 분석하기
 
+### costAjax 와 shippingAjax 의 가능한 실행 순서
+
+1. 동시: 자바스크립트 스레드 모델로는 불가능합니다.
+2. costAjax 먼저: 버그가 아닌 기대하는 동작입니다.
+3. shippingAjax 먼저: 기대하지 않는 동작이므로 조치가 필요합니다.
+
 ## 왜 지금 타임라인이 더 빠를까요?
+
+병렬로 진행하기 때문입니다.
 
 ## 모든 병렬 콜백 기다리기
 
+병렬을 기다는 선을 컷이라고 부릅니다.
+이 컷이라는 부분을 구현하면 됩니다.
+
 ## 타임라인을 나누기 위한 동시성 기본형
+
+경쟁 조건을 막으면 됩니다.
+경쟁 조건은 어떤 동작이 먼저 끝나는 타임라인에 의존할 때 발생합니다.
 
 ## 코드에 Cut() 적용하기
 
+두가지만 고민하면 됩니다.
+
+1. Cut() 을 보관할 범위
+2. Cut() 에 어떤 콜백을 넣을지
+
+```typescript
+function calculateCartTotal(cart: Cart, callback: (total: number) => void) {
+  let total = 0;
+  const done = Cut(2, () => callback(total));
+  costAjax(cart, (cost) => {
+    total += cost;
+    done();
+  });
+  shippingAjax(cart, (shipping) => {
+    total += shipping;
+    done();
+  });
+}
+```
+
+Cut 안의 숫자 2는 두번의 호출을 기다리겠다라는 의미입니다.
+
 ## 불확실한 순서 분석하기
+
+1. 동시: 자바스크립트 스레드 모델로는 불가능합니다.
+2. costAjax 먼저: done 두번을 기다리니 기대한 결과가 나타납니다.
+3. shippingAjax 먼저: done 두번을 기다리니 기대한 결과가 나타납니다.
 
 ## 병렬 실행 분석
 
+| 클릭핸들러, 큐 | costAjax | shippingAjax |
+| -------------- | -------- | ------------ |
+| 1, 2, 3, 4     |          |              |
+| 5, 6, 8        |          |              |
+|                | 7        | 9            |
+|                | 10, 11   |              |
+
 ## 여러 번 클릭하는 경우 분석
+
+클릭1 다이어그램, 클릭2 다이어그램, 큐 다이어그램만 존재하므로 정상적으로 작동합니다.
 
 ## 딱 한 번만 호출하는 기본형
 
+```typescript
+function JustOnce(action: VoidFunction) {
+  let alreadyCalled = false;
+  return function (...args: any[]) {
+    if (alreadyCalled) return;
+    alreadyCalled = true;
+    return action(...args);
+  };
+}
+
+function sendAddToCartText(phone: string) {
+  sendTextAjax(phone, 'Thank you');
+}
+
+const sendAddToCartTextOnce = JustOnce(sendAddToCartText);
+
+sendAddToCartTextOnce('010-1234-5678');
+sendAddToCartTextOnce('010-1234-5678');
+sendAddToCartTextOnce('010-1234-5678');
+sendAddToCartTextOnce('010-1234-5678');
+```
+
+몇번을 호출해도 한번만 실행합니다.
+
 ## 암묵적 시간 모델 vs 명시적 시간 모델
+
+자바스크립트 시간 모델은 간단합니다.
+
+1. 순차적 구문은 순서대로 실행됩니다.
+2. 두 타임라인에 있는 단계는 왼쪽 먼저 실행되거나, 오른쪽 먼저 실행될 수 있습니다.
+3. 비동기 이벤트는 새로운 타임라인에서 실행됩니다.
+4. 액션은 호출할 때마다 실행됩니다.
 
 ## 요약: 타임라인 사용하기
 
+- 타임라인 수를 줄입니다.
+- 타임라인 길이를 줄입니다.
+- 공유 자원을 없앱니다.
+- 동시성 기본형으로 자원을 공유합니다.
+- 동시성 기본형으로 조율합니다.
+
 ## 결론
 
+이 장에서 웹 요청의 시간 차이 때문에 발생하는 경쟁 조건에 대해 알아보았습니다.
+요청한 순서대로 응답이 도착하는 것이 보장되지 않으니
+Promise 나 Cut 을 사용합시다.
+
 ## 요점 정리
+
+- 함수형 개발자는 언어가 제공하는 암묵적 시간 모델 대신 새로운 시간 모델을 만들어 사용합니다.
+- 명시적 시간 모델은 종종 일급 값으로 만듭니다.
+- 타임라인을 조율하기 위해 동시성 기본형을 만들 수 있습니다.
+- 타임라인을 나누는 것도 타임라인을 조율하는 방법 중 하나입니다.
